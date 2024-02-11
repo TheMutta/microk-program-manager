@@ -11,6 +11,7 @@ void PutHex(size_t hex) {
 	Syscall(0, hex, 'x', 0, 0, 0, 0);
 }
 
+
 extern "C" int Main(void *parent) {
 	PutStr("Hello, from userland!\r\n");
 
@@ -20,12 +21,12 @@ extern "C" int Main(void *parent) {
 	MKMI_Capability cnodeCapability;
 	MKMI_Capability memoryCapability;
 
-	Syscall(2, cnodePtr, cnodeSlot, (size_t)&cnodeCapability, 0, 0, 0);
+	Syscall(2, 2, cnodePtr, cnodeSlot, (size_t)&cnodeCapability, 0, 0);
 	cnodeSlot = 1;
 
 	PutStr("Memory regions:\r\n");
 	do {
-		Syscall(2, cnodeCapability.Object, cnodeSlot, (size_t)&memoryCapability, 0, 0, 0);
+		Syscall(2, 2, cnodeCapability.Object, cnodeSlot, (size_t)&memoryCapability, 0, 0);
 		
 		PutHex(memoryCapability.Type);
 		PutStr("\r\n");
