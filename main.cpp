@@ -14,17 +14,23 @@ extern "C" int Main(void *parent) {
 	PutStr("Hello, from userland!\r\n");
 
 	uintptr_t cnodePtr = 0;
+	uintptr_t memoryRegion = 0;
 	size_t cnodeSlot = 4;
 	size_t capSize = 0;
 	Syscall(2, cnodePtr, cnodeSlot, (size_t)&cnodePtr, (size_t)&capSize, 0, 0);
 	cnodeSlot = 1;
-	Syscall(2, cnodePtr, cnodeSlot, (size_t)&cnodePtr, (size_t)&capSize, 0, 0);
 
-	PutStr("First memory region:\r\n");
-	PutHex(cnodePtr);
-	PutStr("\r\n");
-	PutHex(capSize);
-	PutStr("\r\n");
+	PutStr("Memory regions:\r\n");
+	while (capSize != 0) {
+		Syscall(2, cnodePtr, cnodeSlot, (size_t)&memoryRegion, (size_t)&capSize, 0, 0);
+		
+		PutHex(memoryRegion);
+		PutStr("\r\n");
+		PutHex(capSize);
+		PutStr("\r\n");
+
+		++cnodeSlot;
+	}
 
 	(void)parent;
 	return 0;
