@@ -17,4 +17,6 @@ void PutDec(long dec) {
 
 extern "C" int Main(void *parent) {
 	PutStr("Hello, from userland!\r\n");
+	(void)parent;
+	return 0;
 }
