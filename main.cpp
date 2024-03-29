@@ -39,31 +39,46 @@ struct UTHeader {
 }__attribute__((packed));
 
 extern "C" int Main(int argc, char **argv) {
+	(void)argc, (void)argv;
+
 	PutStr("Hello, from userland!\r\n");
 
-	if (argc != 1) {
-		return -1;
-	}
-
-	uptr *initInfo = (uptr*)argv;
-
-	PutHex((uptr)initInfo);
-	PutStr("\r\n");
-	PutHex(*initInfo);
-	PutStr("\r\n");
-
-	
 	uptr capPtr = 0;
 	Syscall(SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_GET_PTR, 0, MEMORY_MAP_CNODE_SLOT, (usize)&capPtr, 0, 0);
 
 	PutHex(capPtr);
 	PutStr("\r\n");
 
-	PutStr("Memory map:\r\n");
+
+	usize utCount;
+	usize largestUtIndex = -1;
+	usize largestUtLength = 0;
 	UTHeader utPtr;
-	for (int i = 1; utPtr.Address != (~(uptr)0); ++i) {
+	for (utCount = 1; ;++utCount) {
+		Syscall(SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_GET_UT, capPtr, utCount, (usize)&utPtr, 0, 0);
+	
+		if (utPtr.Address == (~(uptr)0)) {
+			break;
+		}
+
+		if (utPtr.Length >= largestUtLength) {
+			largestUtLength = utPtr.Length;
+			largestUtIndex = utCount;
+		}
+	}
+
+	PutStr("Memory map:\r\n");
+	for (usize i = 1; i < utCount; ++i) {
 		Syscall(SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_GET_UT, capPtr, i, (usize)&utPtr, 0, 0);
 	
+		if (utPtr.Address == (~(uptr)0)) {
+			break;
+		}
+
+		PutStr("Slot: ");
+		PutDec(i);
+		PutStr("\r\n");
+
 		PutStr("-> ");
 		PutHex(utPtr.Address);
 
@@ -72,6 +87,39 @@ extern "C" int Main(int argc, char **argv) {
 		PutStr("kb\r\n");
 	}
 
+	const usize cnodeSize = 64 * 1024;
+	usize newUtSlot;
+	usize newNodeSlot;
+
+	if (largestUtLength < cnodeSize) {
+		return -1;
+	}
+	
+	Syscall(SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_SPLIT, capPtr, largestUtIndex, cnodeSize, capPtr, (usize)&newUtSlot);
+	PutStr("New slot: ");
+	PutDec(newUtSlot);
+	PutStr("\r\n");
+
+	Syscall(SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_RETYPE, capPtr, newUtSlot, OBJECT_TYPE::CNODE, capPtr, (usize)&newNodeSlot);
+	PutStr("New slot: ");
+	PutDec(newNodeSlot);
+	PutStr("\r\n");
+
+	uptr newCapPtr;	
+	Syscall(SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_GET_PTR, capPtr, newNodeSlot, (usize)&newCapPtr, 0, 0);
+
+	PutHex(newCapPtr);
+	PutStr("\r\n");
+
+
+	/*
+	Syscall(SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_GET_UT, capPtr, newSlot, (usize)&utPtr, 0, 0);
+	PutHex(utPtr.Address);
+
+	PutBlank(16 - GetDigit(utPtr.Address, 16) + 1);
+	PutDec(utPtr.Length / 1024);
+	PutStr("kb\r\n");
+	*/
 
 	PutStr("\r\n");
 
