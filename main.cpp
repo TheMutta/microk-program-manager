@@ -49,6 +49,9 @@ extern "C" int Main(int argc, char **argv) {
 
 	PutHex((uptr)initInfo);
 	PutStr("\r\n");
+	PutHex(*initInfo);
+	PutStr("\r\n");
+
 	
 	uptr capPtr = 0;
 	Syscall(SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_GET_PTR, 0, MEMORY_MAP_CNODE_SLOT, (usize)&capPtr, 0, 0);
