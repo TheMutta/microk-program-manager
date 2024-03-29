@@ -1,7 +1,6 @@
 #include <stdint.h>
 #include <stddef.h>
-#include <mkmi_syscall.h>
-#include <mkmi_capability.h>
+#include <mkmi.h>
 
 void PutStr(const char *str) {
 	Syscall(SYSCALL_VECTOR_DEBUG, (usize)str, 's', 0, 0, 0, 0);
