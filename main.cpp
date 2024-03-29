@@ -110,6 +110,10 @@ extern "C" int Main(int argc, char **argv) {
 	PutHex(newCapPtr);
 	PutStr("\r\n");
 
+	Syscall(SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_ADD_CNODE, capPtr, newNodeSlot, 0, 0, 0);
+
+	PutStr("Node added to cspace\r\n");
+
 
 	/*
 	Syscall(SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_GET_UT, capPtr, newSlot, (usize)&utPtr, 0, 0);
