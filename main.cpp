@@ -37,24 +37,32 @@ struct UTHeader {
 	u32 Flags;
 }__attribute__((packed));
 
+usize GetCapabilityPointer(uptr node, usize slot) {
+	uptr pointer = 0;
+	Syscall(SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_GET_PTR, node, slot, (usize)&pointer, 0, 0);
+	return pointer;
+}
+
+void GetUTHeader(uptr node, usize slot, UTHeader *header) {
+	Syscall(SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_GET_UT, node, slot, (usize)header, 0, 0);
+}
+
 extern "C" int Main(int argc, char **argv) {
 	(void)argc, (void)argv;
 
 	PutStr("Hello, from userland!\r\n");
 
-	uptr capPtr = 0;
-	Syscall(SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_GET_PTR, 0, MEMORY_MAP_CNODE_SLOT, (usize)&capPtr, 0, 0);
+	uptr capPtr = GetCapabilityPointer(0, MEMORY_MAP_CNODE_SLOT);
 
 	PutHex(capPtr);
 	PutStr("\r\n");
-
 
 	usize utCount;
 	usize largestUtIndex = -1;
 	usize largestUtLength = 0;
 	UTHeader utPtr;
 	for (utCount = 1; ;++utCount) {
-		Syscall(SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_GET_UT, capPtr, utCount, (usize)&utPtr, 0, 0);
+		GetUTHeader(capPtr, utCount, &utPtr);
 	
 		if (utPtr.Address == (~(uptr)0)) {
 			break;
@@ -68,7 +76,7 @@ extern "C" int Main(int argc, char **argv) {
 
 	PutStr("Memory map:\r\n");
 	for (usize i = 1; i < utCount; ++i) {
-		Syscall(SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_GET_UT, capPtr, i, (usize)&utPtr, 0, 0);
+		GetUTHeader(capPtr, i, &utPtr);
 	
 		if (utPtr.Address == (~(uptr)0)) {
 			break;
@@ -114,6 +122,10 @@ extern "C" int Main(int argc, char **argv) {
 
 	PutStr("Node added to cspace\r\n");
 
+	usize utFrameSlot;
+	usize frameSlot;
+	Syscall(SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_SPLIT, capPtr, newUtSlot + 1, 4096, newCapPtr, (usize)&utFrameSlot);
+	Syscall(SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_RETYPE, newCapPtr, utFrameSlot, OBJECT_TYPE::FRAMES, newCapPtr, (usize)&frameSlot);
 
 	/*
 	Syscall(SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_GET_UT, capPtr, newSlot, (usize)&utPtr, 0, 0);
