@@ -2,35 +2,6 @@
 #include <stddef.h>
 #include <mkmi.h>
 
-void PutStr(const char *str) {
-	Syscall(SYSCALL_VECTOR_DEBUG, (usize)str, 's', 0, 0, 0, 0);
-}
-
-void PutHex(usize hex) {
-	Syscall(SYSCALL_VECTOR_DEBUG, hex, 'x', 0, 0, 0, 0);
-}
-
-void PutDec(long dec) {
-	Syscall(SYSCALL_VECTOR_DEBUG, dec, 'd', 0, 0, 0, 0);
-}
-
-void PutBlank(long count) {
-	for (int i = 0; i < count; ++i) {
-		PutStr(" ");
-	}
-}
-
-int GetDigit(usize number, usize base) {
-	int digit = 1;
-
-	while(number >= base) {
-		number /= base;
-		++digit;
-	}
-
-	return digit;
-}
-
 struct UTHeader {
 	uptr Address;
 	usize Length;
@@ -48,16 +19,11 @@ void GetUTHeader(uptr node, usize slot, UTHeader *header) {
 }
 
 extern "C" int Main(int argc, char **argv) {
-	PutStr("Args:\r\n");
-	PutHex(argc);
-	PutStr("\r\n");
-	PutHex((uptr)argv);
-	PutStr("\r\n");
+	MKMI_Log("Args: %d 0x%x\r\n", argc, argv);
 
 	uptr capPtr = GetCapabilityPointer(0, MEMORY_MAP_CNODE_SLOT);
 
-	PutHex(capPtr);
-	PutStr("\r\n");
+	MKMI_Log("0x%x\r\n", capPtr);
 
 	usize utCount;
 	usize largestUtIndex = -1;
@@ -76,7 +42,7 @@ extern "C" int Main(int argc, char **argv) {
 		}
 	}
 
-	PutStr("Memory map:\r\n");
+	MKMI_Log("Memory map:\r\n");
 	for (usize i = 1; i < utCount; ++i) {
 		GetUTHeader(capPtr, i, &utPtr);
 	
@@ -84,16 +50,8 @@ extern "C" int Main(int argc, char **argv) {
 			break;
 		}
 
-		PutStr("Slot: ");
-		PutDec(i);
-		PutStr("\r\n");
-
-		PutStr("-> ");
-		PutHex(utPtr.Address);
-
-		PutBlank(16 - GetDigit(utPtr.Address, 16) + 1);
-		PutDec(utPtr.Length / 1024);
-		PutStr("kb\r\n");
+		MKMI_Log("Slot: %d\r\n", i);
+		MKMI_Log("-> 0x%x %dkb\r\n", utPtr.Address, utPtr.Length / 1024);
 	}
 
 	const usize cnodeSize = 64 * 1024;
@@ -105,24 +63,18 @@ extern "C" int Main(int argc, char **argv) {
 	}
 	
 	Syscall(SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_SPLIT, capPtr, largestUtIndex, cnodeSize, capPtr, (usize)&newUtSlot);
-	PutStr("New slot: ");
-	PutDec(newUtSlot);
-	PutStr("\r\n");
+	MKMI_Log("New slot: %d\r\n", newUtSlot);
 
 	Syscall(SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_RETYPE, capPtr, newUtSlot, OBJECT_TYPE::CNODE, capPtr, (usize)&newNodeSlot);
-	PutStr("New slot: ");
-	PutDec(newNodeSlot);
-	PutStr("\r\n");
+	MKMI_Log("New slot: %d\r\n", newNodeSlot);
 
 	uptr newCapPtr;	
 	Syscall(SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_GET_PTR, capPtr, newNodeSlot, (usize)&newCapPtr, 0, 0);
-
-	PutHex(newCapPtr);
-	PutStr("\r\n");
+	MKMI_Log("0x%x\r\n", newCapPtr);
 
 	Syscall(SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_ADD_CNODE, capPtr, newNodeSlot, 0, 0, 0);
 
-	PutStr("Node added to cspace\r\n");
+	MKMI_Log("Node added to cspace\r\n");
 
 	usize utFrameSlot;
 	usize frameSlot;
@@ -137,8 +89,6 @@ extern "C" int Main(int argc, char **argv) {
 	PutDec(utPtr.Length / 1024);
 	PutStr("kb\r\n");
 	*/
-
-	PutStr("\r\n");
 
 	return 0;
 }
