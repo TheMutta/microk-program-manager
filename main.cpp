@@ -48,9 +48,11 @@ void GetUTHeader(uptr node, usize slot, UTHeader *header) {
 }
 
 extern "C" int Main(int argc, char **argv) {
-	(void)argc, (void)argv;
-
-	PutStr("Hello, from userland!\r\n");
+	PutStr("Args:\r\n");
+	PutHex(argc);
+	PutStr("\r\n");
+	PutHex((uptr)argv);
+	PutStr("\r\n");
 
 	uptr capPtr = GetCapabilityPointer(0, MEMORY_MAP_CNODE_SLOT);
 
