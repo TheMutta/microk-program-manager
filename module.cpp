@@ -77,13 +77,34 @@ extern "C" int Main(int argc, char **argv) {
 	mkmi_log("Node added to cspace\r\n");
 
 	usize ut_frame_slot;
-	usize frame_slot;
-	syscall(8, SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_SPLIT, cap_ptr, new_ut_slot + 1, 4096, new_cap_ptr, (usize)&ut_frame_slot, 2);
-	syscall(8, SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_RETYPE, new_cap_ptr, ut_frame_slot, OBJECT_TYPE::FRAMES, new_cap_ptr, (usize)&frame_slot, CAPABILITY_RIGHTS::ACCESS);
+	usize lvl3_slot;
+	usize lvl2_slot;
+	usize lvl1_slot;
+	const usize frame_count = 10;
+	usize frame_slot[frame_count];
+	syscall(8, SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_SPLIT, cap_ptr, new_ut_slot + 1, 4096, new_cap_ptr, (usize)&ut_frame_slot, 3 + frame_count + 1);
+	syscall(8, SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_RETYPE, new_cap_ptr, ut_frame_slot, OBJECT_TYPE::PAGING_STRUCTURE, new_cap_ptr, (usize)&lvl3_slot, CAPABILITY_RIGHTS::ACCESS, 0);
+	syscall(8, SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_RETYPE, new_cap_ptr, ut_frame_slot + 1, OBJECT_TYPE::PAGING_STRUCTURE, new_cap_ptr, (usize)&lvl2_slot, CAPABILITY_RIGHTS::ACCESS, 0);
+	syscall(8, SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_RETYPE, new_cap_ptr, ut_frame_slot + 2, OBJECT_TYPE::PAGING_STRUCTURE, new_cap_ptr, (usize)&lvl1_slot, CAPABILITY_RIGHTS::ACCESS, 0);
 
-	syscall(3, SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_DEBUG, 0);
-	syscall(3, SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_DEBUG, cap_ptr);
+	for (usize i = 0; i < frame_count; ++i) {
+		syscall(8, SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_RETYPE, new_cap_ptr, ut_frame_slot + 3 + i, OBJECT_TYPE::FRAMES, new_cap_ptr, (usize)&frame_slot[i], CAPABILITY_RIGHTS::ACCESS, 0);
+	}
+
+	uptr addr = 0xDEAD0000;
+	syscall(8, SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_MAP_INTERMEDIATE, new_cap_ptr, lvl3_slot, 3, addr, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE, 0, 0);
+	syscall(8, SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_MAP_INTERMEDIATE, new_cap_ptr, lvl2_slot, 2, addr, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE, 0, 0);
+	syscall(8, SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_MAP_INTERMEDIATE, new_cap_ptr, lvl1_slot, 1, addr, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE, 0, 0);
+
+	for (usize i = 0; i < frame_count; ++i) {
+		syscall(8, SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_MAP_PAGE, new_cap_ptr, frame_slot[i], addr + 4096 * i, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE, 0, 0);
+	}
+
+	*((u32*)addr) = 0x0BADCACA;
+	mkmi_log("Value: 0x%x\r\n", *((u32*)addr));
+
+/*
 	syscall(3, SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_DEBUG, new_cap_ptr);
-
+*/
 	return 0;
 }
