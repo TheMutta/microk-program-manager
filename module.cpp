@@ -32,6 +32,13 @@ void get_ut_header(uptr node, usize slot, ut_header *header) {
 
 extern "C" int Main(int argc, char **argv) {
 	(void)argc, (void)argv;
+
+	uptr initrdAddr = __mkmi_get_arg_index(0);
+	usize initrdSize = __mkmi_get_arg_index(1);
+	
+	mkmi_log("Initrd: [0x%x - 0x%x]\r\n", initrdAddr, initrdAddr + initrdSize);
+
+
 	uptr cap_ptr = get_capability_pointer(0, MEMORY_MAP_CNODE_SLOT);
 
 	mkmi_log("0x%x\r\n", cap_ptr);
@@ -66,7 +73,7 @@ extern "C" int Main(int argc, char **argv) {
 		mkmi_log("-> 0x%x %dkb\r\n", ut_ptr.address, ut_ptr.length / 1024);
 	}
 
-	const usize cnode_size = 64 * 1024;
+	const usize cnode_size = 1 * 1024 * 1024;
 	usize new_ut_slot;
 	usize new_node_slot;
 
