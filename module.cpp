@@ -3,6 +3,7 @@
 #include <mkmi.h>
 #include "initrd.hpp"
 #include "heap.hpp"
+#include "elf_loader.hpp"
 
 struct ut_header {
 	uptr address;
@@ -181,9 +182,6 @@ extern "C" int Main(int argc, char **argv) {
 	dump_hdrs();
 	memareas[7] = malloc(16384);
 	dump_hdrs();
-
-
-
 	free(memareas[0]);
 	dump_hdrs();
 	free(memareas[2]);
@@ -212,6 +210,54 @@ extern "C" int Main(int argc, char **argv) {
 	}
 
 	InitrdInstance instance((u8*)initrd_addr, initrd_end - initrd_start, INITRD_TAR_UNCOMPRESSED);
+
+	auto modulesConfFile = instance.SearchForPath("etc/modules.conf");
+	if (modulesConfFile.get() == NULL) {
+		mkmi_log("Failed to get etc/modules.conf from initrd\r\n");
+		return -1;
+	}
+
+	u8 *modulesConfFileData = modulesConfFile->addr;
+	mkmi_log("modules.conf file data:\r\n%s\r\n", modulesConfFileData);
+
+	auto managerFile = instance.SearchForPath("modules/manager.kmd");
+	if (managerFile.get() == NULL) {
+		mkmi_log("Failed to get modules/manager.kmd from initrd\r\n");
+		return -1;
+	}
+	
+	mkmi_log("safe_ptr test\r\n");
+	{
+		mkmi_log("before alloc\r\n");
+		dump_hdrs();
+
+		safe_ptr<int> safePtr = secure_malloc<int>();
+
+		mkmi_log("after alloc\r\n");
+		dump_hdrs();
+
+		mkmi_log("ref count 1: %d\r\n", safePtr.get_count());
+		safe_ptr<int> safePtr2 = safePtr;
+		mkmi_log("ref count 1: %d\r\n", safePtr.get_count());
+		mkmi_log("ref count 2: %d\r\n", safePtr2.get_count());
+		safePtr = safePtr2;
+		mkmi_log("ref count 1: %d\r\n", safePtr.get_count());
+		mkmi_log("ref count 2: %d\r\n", safePtr2.get_count());
+		safePtr = safePtr2;
+		mkmi_log("ref count 1: %d\r\n", safePtr.get_count());
+		mkmi_log("ref count 2: %d\r\n", safePtr2.get_count());
+		safePtr2 = safePtr;
+		mkmi_log("ref count 1: %d\r\n", safePtr.get_count());
+		mkmi_log("ref count 2: %d\r\n", safePtr2.get_count());
+
+		mkmi_log("after tests\r\n");
+		dump_hdrs();
+	}
+	
+	mkmi_log("after free\r\n");
+	dump_hdrs();
+
+	ElfLoaderInstance elfLoader(managerFile->addr, managerFile->size);
 
 	while(true) { }
 

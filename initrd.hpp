@@ -4,6 +4,8 @@
 #include <stddef.h>
 #include <mkmi.h>
 
+#include "safe_ptr.hpp"
+
 enum InitrdFormat_t {
 	INITRD_TAR_UNCOMPRESSED,
 	INITRD_TAR_GZ,
@@ -13,15 +15,30 @@ enum InitrdFormat_t {
 
 class InitrdInstance {
 public:
+	struct InitrdFile {
+		safe_ptr<InitrdFile> next, prev;
+
+		const char *name;
+		usize size;
+		u8 *addr;
+	};
+
 	InitrdInstance(uint8_t *address, size_t size, InitrdFormat_t format);
+	InitrdInstance(const InitrdInstance& obj) : address(obj.address), size(obj.size), format(obj.format), rootFile(obj.rootFile) {}
+	InitrdInstance& operator=(const InitrdInstance & dyingObj){ (void)dyingObj; return *this; }
+	
 
-	int SearchForPath(const char *path, uint8_t **returnAddress, size_t *returnSize);
 
+	safe_ptr<InitrdFile> SearchForPath(const char *path);
 private:
+
+
 	int IndexInitrd();
 	int UnpackInitrd();
 
-	uint8_t *Address;
-	size_t Size;
-	InitrdFormat_t Format;
+	uint8_t *address;
+	size_t size;
+	InitrdFormat_t format;
+
+	safe_ptr<InitrdFile> rootFile;
 };

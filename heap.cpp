@@ -1,5 +1,4 @@
 #include "heap.hpp"
-
 heap_header *firstHeader;
 
 void init_heap(void *addr, usize size) {
