@@ -1,6 +1,8 @@
 #pragma once
+#include <cdefs.h>
 #include <stdint.h>
 #include <stddef.h>
+#include <mkmi.h>
 
 enum InitrdFormat_t {
 	INITRD_TAR_UNCOMPRESSED,

@@ -1,24 +1,14 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <mkmi.h>
+#include "initrd.hpp"
+#include "heap.hpp"
 
 struct ut_header {
 	uptr address;
 	usize length;
 	u32 flags;
 }__attribute__((packed));
-
-struct heap_header {
-	heap_header *previous, *next;
-	usize size;
-	bool used;
-}__attribute__((packed));
-
-heap_header *firstHeader;
-
-void *malloc(usize size);
-void free(void *ptr);
-void dump_hdrs();
 
 uptr get_capability_pointer(uptr node, usize slot) {
 	uptr pointer = 0;
@@ -40,8 +30,11 @@ extern "C" int Main(int argc, char **argv) {
 	usize total_memmap = __mkmi_get_arg_index(0);
 	usize initrd_start = __mkmi_get_arg_index(1);
 	usize initrd_end = __mkmi_get_arg_index(2);
+	
+	mkmi_log("Initrd: [0x%x - 0x%x]\r\n", initrd_start, initrd_end);
 
 	uptr cap_ptr = get_capability_pointer(0, MEMORY_MAP_CNODE_SLOT);
+				
 
 	mkmi_log("0x%x\r\n", cap_ptr);
 
@@ -65,9 +58,10 @@ extern "C" int Main(int argc, char **argv) {
 			if (type == OBJECT_TYPE::FRAMES) {
 				if (obj == initrd_start) {
 					initrd_start_slot = i;
-				} else if (obj == initrd_end) {
+				} else if (obj == initrd_end - 4096) {
 					initrd_end_slot = i;
-					mkmi_log("-> 0x%x %dkb Initrd\r\n", ut_ptr.address, ut_ptr.length / 1024);
+
+					mkmi_log("-> 0x%x %dkb Initrd\r\n", initrd_start, (initrd_end - initrd_start)/ 1024);
 				} else {
 					mkmi_log("-> 0x%x 4kb Frame\r\n", obj);
 				}
@@ -115,6 +109,11 @@ extern "C" int Main(int argc, char **argv) {
 	usize lvl3_slot;
 	usize lvl2_slot;
 	usize lvl1_slot;
+
+	usize lvl3_initrd_slot;
+	usize lvl2_initrd_slot;
+	usize lvl1_initrd_slot;
+
 	const usize frame_count = 512;
 	usize frame_slot[frame_count];
 	ut_header new_hdr;
@@ -122,7 +121,7 @@ extern "C" int Main(int argc, char **argv) {
 	get_ut_header(cap_ptr, new_ut_slot + 1, &new_hdr);
 	mkmi_log("Region size: %d frames\r\n", new_hdr.length / 4096);
 	syscall(5, SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_GET_NEXT_SLOT, cap_ptr, new_ut_slot, &next_region);
-	syscall(8, SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_SPLIT, cap_ptr, next_region, 4096, new_cap_ptr, (usize)&ut_frame_slot, 3 + frame_count + 1);
+	syscall(8, SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_SPLIT, cap_ptr, next_region, 4096, new_cap_ptr, (usize)&ut_frame_slot, 3 + 3 + frame_count + 1);
 
 	syscall(8, SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_RETYPE, new_cap_ptr, ut_frame_slot, OBJECT_TYPE::PAGING_STRUCTURE, new_cap_ptr, (usize)&lvl3_slot, 0xFFFF, 0);
 	syscall(5, SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_GET_NEXT_SLOT, new_cap_ptr, ut_frame_slot, &ut_frame_slot);
@@ -131,6 +130,15 @@ extern "C" int Main(int argc, char **argv) {
 	syscall(5, SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_GET_NEXT_SLOT, new_cap_ptr, ut_frame_slot, &ut_frame_slot);
 
 	syscall(8, SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_RETYPE, new_cap_ptr, ut_frame_slot, OBJECT_TYPE::PAGING_STRUCTURE, new_cap_ptr, (usize)&lvl1_slot, 0xFFFF, 0);
+	syscall(5, SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_GET_NEXT_SLOT, new_cap_ptr, ut_frame_slot, &ut_frame_slot);
+
+	syscall(8, SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_RETYPE, new_cap_ptr, ut_frame_slot, OBJECT_TYPE::PAGING_STRUCTURE, new_cap_ptr, (usize)&lvl3_initrd_slot, 0xFFFF, 0);
+	syscall(5, SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_GET_NEXT_SLOT, new_cap_ptr, ut_frame_slot, &ut_frame_slot);
+
+	syscall(8, SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_RETYPE, new_cap_ptr, ut_frame_slot, OBJECT_TYPE::PAGING_STRUCTURE, new_cap_ptr, (usize)&lvl2_initrd_slot, 0xFFFF, 0);
+	syscall(5, SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_GET_NEXT_SLOT, new_cap_ptr, ut_frame_slot, &ut_frame_slot);
+
+	syscall(8, SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_RETYPE, new_cap_ptr, ut_frame_slot, OBJECT_TYPE::PAGING_STRUCTURE, new_cap_ptr, (usize)&lvl1_initrd_slot, 0xFFFF, 0);
 	syscall(5, SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_GET_NEXT_SLOT, new_cap_ptr, ut_frame_slot, &ut_frame_slot);
 
 	for (usize i = 0; i < frame_count; ++i) {
@@ -143,6 +151,8 @@ extern "C" int Main(int argc, char **argv) {
 	syscall(8, SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_MAP_INTERMEDIATE, new_cap_ptr, lvl2_slot, 2, addr, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE, 0, 0);
 	syscall(8, SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_MAP_INTERMEDIATE, new_cap_ptr, lvl1_slot, 1, addr, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE, 0, 0);
 
+	syscall(5, SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_GET_NEXT_SLOT, cap_ptr, new_ut_slot, &next_region);
+
 	for (usize i = 0; i < frame_count; ++i) {
 		syscall(8, SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_MAP_PAGE, new_cap_ptr, frame_slot[i], addr + 4096 * i, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE, 0, 0);
 	}
@@ -151,13 +161,7 @@ extern "C" int Main(int argc, char **argv) {
 		*((volatile u8*)(addr + i)) = 0x00;
 	}
 
-	heap_header *hdr = (heap_header*)addr;
-	hdr->previous = hdr->next = NULL;
-	hdr->used = false;
-	hdr->size = frame_count * 4096 - sizeof(heap_header);
-	firstHeader = hdr;
-	
-	mkmi_log("Heap at 0x%x of size %d bytes\r\n", addr, frame_count * 4096);
+	init_heap((void*)addr, frame_count * 4096);
 
 	void *memareas[8];
 	dump_hdrs();
@@ -197,6 +201,18 @@ extern "C" int Main(int argc, char **argv) {
 	free(memareas[7]);
 	dump_hdrs();
 
+	uptr initrd_addr = 0xDEAD0000000;
+	syscall(8, SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_MAP_INTERMEDIATE, new_cap_ptr, lvl3_initrd_slot, 3, initrd_addr, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE, 0, 0);
+	syscall(8, SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_MAP_INTERMEDIATE, new_cap_ptr, lvl2_initrd_slot, 2, initrd_addr, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE, 0, 0);
+	syscall(8, SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_MAP_INTERMEDIATE, new_cap_ptr, lvl1_initrd_slot, 1, initrd_addr, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE, 0, 0);
+
+	mkmi_log("Initrd: [%d -  %d]\r\n", initrd_start_slot, initrd_end_slot);
+	for (usize i = initrd_start_slot; i < initrd_end_slot; ++i) {
+		syscall(8, SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_MAP_PAGE, cap_ptr, i, initrd_addr + 4096 * (i - initrd_start_slot), PAGE_PROTECTION_READ, 0, 0);
+	}
+
+	InitrdInstance instance((u8*)initrd_addr, initrd_end - initrd_start, INITRD_TAR_UNCOMPRESSED);
+
 	while(true) { }
 
 	syscall(3, SYSCALL_VECTOR_CAPCTL, SYSCALL_CAPCTL_DEBUG, 0);
@@ -206,95 +222,3 @@ extern "C" int Main(int argc, char **argv) {
 	return 0;
 }
 
-void dump_hdrs() {
-	mkmi_log("HEAP_START\r\n");
-	for (heap_header *hdr = firstHeader; hdr != NULL; hdr = hdr->next) {
-		if (!hdr) {
-			break;
-		}
-
-		mkmi_log("HEAP_HDR 0x%x, %d bytes, %s\r\n", (void*)hdr, hdr->size, hdr->used ? "used" : "unused");
-	}
-	mkmi_log("HEAP_END\r\n");
-}
-
-void *malloc(usize size) {
-	for (heap_header *hdr = firstHeader; hdr != NULL; hdr = hdr->next) {
-		if (!hdr) break;
-		if (hdr->used) continue;
-		if (hdr->size < size) continue;
-		
-		if (hdr->size == size) {
-			hdr->used = true;
-			return (void*)((uptr)hdr + sizeof(heap_header));
-		} else if (hdr->size > size) {
-			if (hdr->size > size + sizeof(heap_header)) {
-				heap_header *next = (heap_header*)((uptr)hdr + sizeof(heap_header) + size);
-				next->used = false;
-				next->size = hdr->size - size - sizeof(heap_header);
-				hdr->size -= next->size + sizeof(heap_header);
-
-				next->previous = hdr;
-				next->next = hdr->next;
-
-				if (hdr->next) {
-				    hdr->next->previous = next;
-				}
-
-				hdr->next = next;
-
-				hdr->used = true;
-				return (void*)((uptr)hdr + sizeof(heap_header));
-			} else {
-				hdr->used = true;
-				return (void*)((uptr)hdr + sizeof(heap_header));
-			}
-		} else {
-			continue;
-		}
-	}
-
-	return NULL;
-}
-
-void free(void *ptr) {
-	heap_header *hdr = (heap_header*)((uptr)ptr - sizeof(heap_header));
-
-	hdr->used = false;
-
-	bool cleanup = false;
-	while (true) {
-		if (hdr->next && !hdr->next->used) {
-			cleanup = true;
-
-			heap_header *nextHdr = hdr->next;
-			if (nextHdr->next) {
-				nextHdr->previous = hdr;
-			}
-
-			hdr->size += nextHdr->size + sizeof(heap_header);
-			hdr->next = nextHdr->next;
-		}
-
-		if (hdr->previous && !hdr->previous->used) {
-			cleanup = true;
-
-			heap_header *prevHdr = hdr->previous;
-
-			if(hdr->next) {
-				hdr->next->previous = prevHdr;
-			}
-
-			prevHdr->next = hdr->next;
-			prevHdr->size += hdr->size + sizeof(heap_header);
-
-			hdr = prevHdr;
-		}
-
-		if (cleanup) {
-			cleanup = false;
-		} else {
-			break;
-		}
-	}
-}
