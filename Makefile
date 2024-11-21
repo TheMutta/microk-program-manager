@@ -9,6 +9,7 @@ COMMON_CFLAGS = -ffreestanding             \
 	 -fno-builtin-g             \
 	 -I ../../mkmi/src/include    \
 	 -I ../../microk-kernel/src/include    \
+	 -I . \
 	 -Wall                      \
 	 -Wextra                    \
 	 -Werror                    \
