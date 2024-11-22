@@ -25,10 +25,11 @@ COMMON_CFLAGS = -ffreestanding             \
 	 -ggdb
 
 LDFLAGS = -static \
-	  -Ttext 0x100000 \
+	  -Ttext 0xFFFFFFFF80000000 \
 	  -nostdlib               \
 	  -m elf_$(ARCH)          \
 	  -z max-page-size=0x1000
+#	  -Ttext 0x100000 \
 
 ifeq ($(ARCH), x86_64)
 	CFLAGS = $(COMMON_CFLAGS) -mno-80387 \
@@ -38,7 +39,7 @@ ifeq ($(ARCH), x86_64)
 	 -mno-red-zone              \
 	 -m64                       \
 	 -mabi=sysv                 \
-	 -mcmodel=small  \
+	 -mcmodel=kernel  \
 	 -march=x86-64
 
 	LDFLAGS += -m elf_x86_64
