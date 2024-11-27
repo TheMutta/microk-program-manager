@@ -48,6 +48,18 @@ static volatile ContainerBindings bindings = {
 	.SyscallHandler = SyscallHandler,
 };
 
+void SplitCapability(Capability capability, Capability *capabilities, usize splitCount) {
+	__fast_syscall(SYSCALL_VECTOR_SPLIT_CAPABILITY, capability.Object, (uptr)capabilities, PAGE_SIZE, splitCount, 0, 0);
+	for (usize i = 0; i < splitCount; ++i) {
+		mkmi_log("Capability: 0x%x with %d children\r\n", capabilities[i].Object, capabilities[i].Children);
+	}
+}
+
+void RetypeCapability(Capability capability, Capability *result, OBJECT_TYPE kind) {
+	__fast_syscall(SYSCALL_VECTOR_RETYPE_CAPABILITY, capability.Object, kind, (uptr)result, 1,  0, 0);
+	mkmi_log("Capability: 0x%x with %d children\r\n", result->Object, result->Children);
+}
+
 extern "C" int Main() {
 	mkmi_log("Hello from the containerized OS.\r\n");
 
@@ -62,29 +74,44 @@ extern "C" int Main() {
 	__fast_syscall(SYSCALL_VECTOR_ADDRESS_CAPABILITY, 0, UNTYPED_FRAMES, (uptr)&capability, (uptr)&capabilityAddr, 0, 0);
 	mkmi_log("Capability: 0x%x -> 0x%x with %d children\r\n", capabilityAddr, capability.Object, capability.Children);
 
-	usize splitCount = 3;
-	Capability capabilities[splitCount];
-	__fast_syscall(SYSCALL_VECTOR_SPLIT_CAPABILITY, capability.Object, (uptr)capabilities, PAGE_SIZE, splitCount, 0, 0);
-	for (usize i = 0; i < splitCount; ++i) {
-		mkmi_log("Capability: 0x%x -> 0x%x with %d children\r\n", capabilityAddr, capabilities[i].Object, capabilities[i].Children);
-	}
+	usize pages = 64;
+	usize cnodes = 0;
 
-	Capability frame;
+	usize splitCount = pages+cnodes+3;
+	Capability capabilities[splitCount];
+	SplitCapability(capability, capabilities, splitCount);
+
+	Capability frame[pages];
+	Capability cnode[cnodes];
 	Capability levels[3];
 	(void)levels;
-	__fast_syscall(SYSCALL_VECTOR_RETYPE_CAPABILITY, capabilities[0].Object, FRAME_MEMORY, (uptr)&frame, 1,  0, 0);
-	mkmi_log("Capability: 0x%x -> 0x%x with %d children\r\n", capabilityAddr, frame.Object, frame.Children);
+	for (usize i = 0; i < pages; ++i) {
+		RetypeCapability(capabilities[i], &frame[i], FRAME_MEMORY);
+	}
 
 	for (int i = 0; i < 3; ++i) {
-		__fast_syscall(SYSCALL_VECTOR_RETYPE_CAPABILITY, capabilities[i + 1].Object, VIRTUAL_MEMORY_PAGING_STRUCTURE, (uptr)&levels[i], 1,  0, 0);
+		RetypeCapability(capabilities[i + pages], &levels[i], VIRTUAL_MEMORY_PAGING_STRUCTURE);
 		mkmi_log("Capability: 0x%x -> 0x%x with %d children\r\n", capabilityAddr, levels[i].Object, levels[i].Children);
 	}
+
+	for (usize i = 0; i < cnodes; ++i) {
+		RetypeCapability(capabilities[i], &cnode[i], CAPABILITY_NODE);
+	}
+	/*
+	__fast_syscall(SYSCALL_VECTOR_ADD_FREE_CAPABILITY, cnode[0].Object, FRAME_MEMORY, 0, 0, 0, 0);
+	__fast_syscall(SYSCALL_VECTOR_ADD_FREE_CAPABILITY, cnode[1].Object, VIRTUAL_MEMORY_PAGING_STRUCTURE, 0, 0, 0, 0);
+	__fast_syscall(SYSCALL_VECTOR_ADD_FREE_CAPABILITY, cnode[2].Object, CAPABILITY_NODE, 0, 0, 0, 0);*/
+
+
 	
 	uptr addr = 0x100000000;
 	__fast_syscall(SYSCALL_VECTOR_MAP_INTERMEDIATE_CAPABILITY, levels[2].Object, 3, addr, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE , 0, 0);
 	__fast_syscall(SYSCALL_VECTOR_MAP_INTERMEDIATE_CAPABILITY, levels[1].Object, 2, addr, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE , 0, 0);
 	__fast_syscall(SYSCALL_VECTOR_MAP_INTERMEDIATE_CAPABILITY, levels[0].Object, 1, addr, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE , 0, 0);
-	__fast_syscall(SYSCALL_VECTOR_MAP_CAPABILITY, frame.Object, FRAME_MEMORY, addr, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE , 0, 0);
+
+	for (usize i = 0; i < pages; ++i) {
+		__fast_syscall(SYSCALL_VECTOR_MAP_CAPABILITY, frame[i].Object, FRAME_MEMORY, addr + i * PAGE_SIZE, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE , 0, 0);
+	}
 
 	mkmi_log("Trying to access page...\r\n");
 	*(u32*)addr = 0xDEAD;
