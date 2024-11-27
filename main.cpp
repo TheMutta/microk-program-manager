@@ -21,13 +21,14 @@ struct Capability {
 }__attribute__((packed, aligned(0x10)));
 
 struct ContainerBindings {
-	void (*ExceptionHandler)();
+	void (*ExceptionHandler)(usize excp, usize errinfo1, usize errinfo2);
 	void (*InterruptHandler)();
 	void (*SyscallHandler)();
 }__attribute__((packed));
 
-void ExceptionHandler() {
+void ExceptionHandler(usize excp, usize errinfo1, usize errinfo2) {
 	mkmi_log("Exception!\r\n");
+	mkmi_log("%d -> 0x%x 0x%x\r\n", excp, errinfo1, errinfo2);
 
 	while (true) { }
 }
@@ -83,11 +84,11 @@ extern "C" int Main() {
 	__fast_syscall(SYSCALL_VECTOR_MAP_INTERMEDIATE_CAPABILITY, levels[2].Object, 3, addr, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE , 0, 0);
 	__fast_syscall(SYSCALL_VECTOR_MAP_INTERMEDIATE_CAPABILITY, levels[1].Object, 2, addr, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE , 0, 0);
 	__fast_syscall(SYSCALL_VECTOR_MAP_INTERMEDIATE_CAPABILITY, levels[0].Object, 1, addr, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE , 0, 0);
-	
 	__fast_syscall(SYSCALL_VECTOR_MAP_CAPABILITY, frame.Object, FRAME_MEMORY, addr, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE , 0, 0);
 
 	mkmi_log("Trying to access page...\r\n");
 	*(u32*)addr = 0xDEAD;
+	mkmi_log("Result: 0x%x\r\n", *(u32*)addr);
 
 
 
