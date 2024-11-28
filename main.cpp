@@ -74,7 +74,6 @@ extern "C" int Main() {
 	__cpuid(0x40000000, null, vendor[0], vendor[1], vendor[2]);
 	mkmi_log("Vendor hypervisor: 0x%x, %s\r\n", null, vendor);
 
-
 	Capability capability;
 	uptr capabilityAddr;
 	__fast_syscall(SYSCALL_VECTOR_ADDRESS_CAPABILITY, 0, UNTYPED_FRAMES, (uptr)&capability, (uptr)&capabilityAddr, 0, 0);
@@ -86,17 +85,14 @@ extern "C" int Main() {
 	mkmi_log("Capability has size of %d bytes or %d pages.\r\n", header.Length, header.Length / PAGE_SIZE);
 
 
-	usize pages = header.Length / PAGE_SIZE - 3;
-	usize cnodes = 0;
+	usize splitCount = header.Length / PAGE_SIZE;
+	usize pages = splitCount - 3;
 
-	usize splitCount = pages+cnodes+3;
 	Capability capabilities[splitCount];
 	SplitCapability(capability, capabilities, splitCount);
 
 	Capability frame[pages];
-	Capability cnode[cnodes];
 	Capability levels[3];
-	(void)levels;
 	for (usize i = 0; i < pages; ++i) {
 		RetypeCapability(capabilities[i], &frame[i], FRAME_MEMORY);
 	}
@@ -106,16 +102,6 @@ extern "C" int Main() {
 		mkmi_log("Capability: 0x%x -> 0x%x with %d children\r\n", capabilityAddr, levels[i].Object, levels[i].Children);
 	}
 
-	for (usize i = 0; i < cnodes; ++i) {
-		RetypeCapability(capabilities[i], &cnode[i], CAPABILITY_NODE);
-	}
-	/*
-	__fast_syscall(SYSCALL_VECTOR_ADD_FREE_CAPABILITY, cnode[0].Object, FRAME_MEMORY, 0, 0, 0, 0);
-	__fast_syscall(SYSCALL_VECTOR_ADD_FREE_CAPABILITY, cnode[1].Object, VIRTUAL_MEMORY_PAGING_STRUCTURE, 0, 0, 0, 0);
-	__fast_syscall(SYSCALL_VECTOR_ADD_FREE_CAPABILITY, cnode[2].Object, CAPABILITY_NODE, 0, 0, 0, 0);*/
-
-
-	
 	uptr addr = 0x100000000;
 	__fast_syscall(SYSCALL_VECTOR_MAP_INTERMEDIATE_CAPABILITY, levels[2].Object, 3, addr, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE , 0, 0);
 	__fast_syscall(SYSCALL_VECTOR_MAP_INTERMEDIATE_CAPABILITY, levels[1].Object, 2, addr, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE , 0, 0);
@@ -129,7 +115,18 @@ extern "C" int Main() {
 	*(u32*)addr = 0xDEAD;
 	mkmi_log("Result: 0x%x\r\n", *(u32*)addr);
 
+	uptr apic = 0xFEE00000;
+	mkmi_log ("Apic at: 0x%x\r\n", apic);
 
+	Capability apicCapability;
+	__fast_syscall(SYSCALL_VECTOR_ADDRESS_CAPABILITY, apic, MMIO_MEMORY, (uptr)&apicCapability, (uptr)&capabilityAddr, 0, 0);
+	mkmi_log("Capability: 0x%x -> 0x%x with %d children\r\n", capabilityAddr, apicCapability.Object, apicCapability.Children);
+
+	uptr apicMap = addr + pages * PAGE_SIZE;
+	__fast_syscall(SYSCALL_VECTOR_MAP_CAPABILITY, apicCapability.Object, MMIO_MEMORY, apicMap, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE , 0, 0);
+
+	mkmi_log("Apic id: %x\r\n", *(u8*)(apicMap + 0x20));
+	mkmi_log("Apic ver: %x\r\n", *(u8*)(apicMap + 0x30));
 
 	return 0;
 }
