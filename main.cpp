@@ -20,6 +20,12 @@ struct Capability {
 	// TODO: overhaul parent/child relationship
 }__attribute__((packed, aligned(0x10)));
 
+struct UntypedHeader {
+	uptr Address;
+	usize Length;
+	u32 Flags;
+}__attribute__((packed));
+
 struct ContainerBindings {
 	void (*ExceptionHandler)(usize excp, usize errinfo1, usize errinfo2);
 	void (*InterruptHandler)();
@@ -74,7 +80,13 @@ extern "C" int Main() {
 	__fast_syscall(SYSCALL_VECTOR_ADDRESS_CAPABILITY, 0, UNTYPED_FRAMES, (uptr)&capability, (uptr)&capabilityAddr, 0, 0);
 	mkmi_log("Capability: 0x%x -> 0x%x with %d children\r\n", capabilityAddr, capability.Object, capability.Children);
 
-	usize pages = 64;
+	UntypedHeader header;
+	__fast_syscall(SYSCALL_VECTOR_GET_UNTYPED_CAPABILITY, capability.Object, (uptr)&header, 0, 0, 0, 0);
+
+	mkmi_log("Capability has size of %d bytes or %d pages.\r\n", header.Length, header.Length / PAGE_SIZE);
+
+
+	usize pages = header.Length / PAGE_SIZE - 3;
 	usize cnodes = 0;
 
 	usize splitCount = pages+cnodes+3;
