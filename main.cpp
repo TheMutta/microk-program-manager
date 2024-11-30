@@ -32,6 +32,19 @@ struct ContainerBindings {
 	void (*SyscallHandler)();
 }__attribute__((packed));
 
+struct RSDP_t {
+	char Signature[8];
+	uint8_t Checksum;
+	char OEMID[6];
+	uint8_t Revision;
+	uint32_t RsdtAddress;
+
+	uint32_t Length;
+	uint64_t XsdtAddress;
+	uint8_t ExtendedChecksum;
+	uint8_t reserved[3];
+} __attribute__ ((packed));
+
 void ExceptionHandler(usize excp, usize errinfo1, usize errinfo2) {
 	mkmi_log("Exception!\r\n");
 	mkmi_log("%d -> 0x%x 0x%x\r\n", excp, errinfo1, errinfo2);
@@ -66,7 +79,7 @@ void RetypeCapability(Capability capability, Capability *result, OBJECT_TYPE kin
 	mkmi_log("Capability: 0x%x with %d children\r\n", result->Object, result->Children);
 }
 
-extern "C" int Main() {
+extern "C" int Main(uptr rsdp) {
 	mkmi_log("Hello from the containerized OS.\r\n");
 
 	u32 vendor[4] = {};
@@ -119,7 +132,7 @@ extern "C" int Main() {
 	mkmi_log ("Apic at: 0x%x\r\n", apic);
 
 	Capability apicCapability;
-	__fast_syscall(SYSCALL_VECTOR_ADDRESS_CAPABILITY, apic, MMIO_MEMORY, (uptr)&apicCapability, (uptr)&capabilityAddr, 0, 0);
+	__fast_syscall(SYSCALL_VECTOR_CREATE_FROM_MEM_CAPABILITY, apic, (uptr)&apicCapability, 0, 0, 0, 0);
 	mkmi_log("Capability: 0x%x -> 0x%x with %d children\r\n", capabilityAddr, apicCapability.Object, apicCapability.Children);
 
 	uptr apicMap = addr + pages * PAGE_SIZE;
@@ -127,6 +140,25 @@ extern "C" int Main() {
 
 	mkmi_log("Apic id: %x\r\n", *(u8*)(apicMap + 0x20));
 	mkmi_log("Apic ver: %x\r\n", *(u8*)(apicMap + 0x30));
+
+	uptr rsdpMap = apicMap + PAGE_SIZE;
+	mkmi_log("rsdp at: 0x%x\r\n", rsdp);
+	Capability rsdpCapability;
+	RSDP_t *rsdpTable = NULL;
+	if (rsdp % PAGE_SIZE) {
+		uptr rsdpAddr = rsdp - rsdp % PAGE_SIZE;
+		__fast_syscall(SYSCALL_VECTOR_CREATE_FROM_MEM_CAPABILITY, rsdpAddr, (uptr)&rsdpCapability, 0, 0, 0, 0);
+		__fast_syscall(SYSCALL_VECTOR_MAP_CAPABILITY, rsdpCapability.Object, MMIO_MEMORY, rsdpMap, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE , 0, 0);
+		rsdpTable = (RSDP_t*)(rsdpMap + (rsdp - rsdpAddr));
+	} else {
+		__fast_syscall(SYSCALL_VECTOR_CREATE_FROM_MEM_CAPABILITY, rsdp, (uptr)&rsdpCapability, 0, 0, 0, 0);
+		__fast_syscall(SYSCALL_VECTOR_MAP_CAPABILITY, rsdpCapability.Object, MMIO_MEMORY, rsdpMap, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE , 0, 0);
+		rsdpTable = (RSDP_t*)rsdpMap;
+	}
+
+	mkmi_log("RSDP at: 0x%x\r\n", rsdpTable);
+	mkmi_log("%s\r\n", rsdpTable->Signature);
+
 
 	return 0;
 }
