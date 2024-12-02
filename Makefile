@@ -16,7 +16,7 @@ COMMON_CFLAGS = -ffreestanding             \
 	 -Wall                      \
 	 -Wextra                    \
 	 -Wno-write-strings         \
-	 -Og                        \
+	 -O0                        \
 	 -fno-exceptions            \
 	 -fno-lto                   \
 	 -fno-pie                   \

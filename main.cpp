@@ -67,16 +67,34 @@ void RetypeCapability(Capability capability, Capability *result, OBJECT_TYPE kin
 	mkmi_log("Capability: 0x%x\r\n", result->Object);
 }
 
-
-
-extern "C" int Main(uptr rsdp) {
-	mkmi_log("Hello from the containerized OS.\r\n");
-
+void GetVendor() {
 	u32 vendor[4] = {};
 	u32 null = 0;
 	__cpuid(0x40000000, null, vendor[0], vendor[1], vendor[2]);
 	mkmi_log("Vendor hypervisor: 0x%x, %s\r\n", null, vendor);
+}
 
+extern "C" int Main(uptr rsdp) {
+	mkmi_log("Hello from the containerized OS.\r\n");
+
+	GetVendor();
+
+	Capability untyped;
+	usize i;
+	for (i = 0; ; ++i) {
+		__fast_syscall(SYSCALL_VECTOR_GET_UNTYPED_CAPABILITY, (uptr)&untyped, i, 0, 0, 0, 0);
+		if (untyped.Type != UNTYPED_FRAMES) break;
+	}
+
+	Capability untypedArray[i];
+	for (i = 0;; ++i) {
+		__fast_syscall(SYSCALL_VECTOR_GET_UNTYPED_CAPABILITY, (uptr)&untypedArray[i], i, 0, 0, 0, 0);
+		if (untypedArray[i].Type != UNTYPED_FRAMES) break;
+		mkmi_log("Capability: 0x%x %d\r\n", untypedArray[i].Object, untypedArray[i].Size);
+	}
+		
+	mkmi_log("Total of %d capabilities available\r\n", i);
+	
 	Capability capability;
 	uptr capabilityAddr;
 	__fast_syscall(SYSCALL_VECTOR_ADDRESS_CAPABILITY, 0, UNTYPED_FRAMES, (uptr)&capability, (uptr)&capabilityAddr, 0, 0);
@@ -101,9 +119,6 @@ extern "C" int Main(uptr rsdp) {
 	}
 	
 	uptr addr = 0;
-
-	
-	
 
 	MMapIntermediate(levels[2], 3, addr, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
 	MMapIntermediate(levels[1], 2, addr, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
