@@ -10,19 +10,22 @@ COMMON_CFLAGS = -ffreestanding             \
 	 -I ../../mkmi/src/include    \
 	 -I ../../microk-kernel/src/include    \
 	 -I . \
+	 -I ./lai/include \
+	 -I ./lai/include/lai \
+	 -I ./liballoc \
 	 -Wall                      \
 	 -Wextra                    \
-	 -Werror                    \
 	 -Wno-write-strings         \
-	 -Weffc++                   \
 	 -Og                        \
-	 -fno-rtti                  \
 	 -fno-exceptions            \
 	 -fno-lto                   \
 	 -fno-pie                   \
 	 -fno-pic                   \
-	 -fpermissive \
 	 -ggdb
+
+COMMON_CXXFLAGS =  -Weffc++                   \
+	 -fpermissive \
+	 -fno-rtti
 
 LDFLAGS = -static \
 	  -Ttext 0xFFFFFFFF80000000 \
@@ -58,15 +61,22 @@ endif
 
 rwildcard=$(foreach d,$(wildcard $(1:=/*)),$(call rwildcard,$d,$2) $(filter $(subst *,%,$2),$d))
 
+CSRC = $(call rwildcard,$(MODDIR),*.c)
 CPPSRC = $(call rwildcard,$(MODDIR),*.cpp)
-OBJS = $(patsubst $(MODDIR)/%.cpp, $(MODDIR)/%.o, $(CPPSRC))
+OBJS += $(patsubst $(MODDIR)/%.c, $(MODDIR)/%.o, $(CSRC))
+OBJS += $(patsubst $(MODDIR)/%.cpp, $(MODDIR)/%.o, $(CPPSRC))
 
 .PHONY: clean module
+
+$(MODDIR)/%.o: $(MODDIR)/%.c
+	@ mkdir -p $(@D)
+	@ echo !==== COMPILING MODULE $^ && \
+	$(CC) $(CFLAGS) -c $^ -o $@
 
 $(MODDIR)/%.o: $(MODDIR)/%.cpp
 	@ mkdir -p $(@D)
 	@ echo !==== COMPILING MODULE $^ && \
-	$(CPP) $(CFLAGS) -c $^ -o $@
+	$(CPP) $(CFLAGS) $(COMMON_CXXFLAGS) -c $^ -o $@
 
 module: $(OBJS)
 	@ echo !==== LINKING
