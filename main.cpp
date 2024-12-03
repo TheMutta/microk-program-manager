@@ -91,16 +91,16 @@ extern "C" int Main(uptr rsdp) {
 	Capability framesUt;
 	Capability levelsUt;
 	GetUntypedRegion(PAGE_SIZE * 3, &levelsUt);
-	GetUntypedRegion(PAGE_SIZE * 16, &framesUt);
+	GetUntypedRegion(PAGE_SIZE * 64, &framesUt);
 
 	mkmi_log("Got region [0x%x - 0x%x]\r\n", levelsUt.Object, levelsUt.Object + levelsUt.Size);
 	mkmi_log("Got region [0x%x - 0x%x]\r\n", framesUt.Object, framesUt.Object + framesUt.Size);
 
 
-	Capability framesF[16];
+	Capability framesF[64];
 	Capability levelsVPS[3];
 
-	RetypeCapability(framesUt, framesF, FRAME_MEMORY, 16);
+	RetypeCapability(framesUt, framesF, FRAME_MEMORY, 64);
 	RetypeCapability(levelsUt, levelsVPS, VIRTUAL_MEMORY_PAGING_STRUCTURE, 3);
 
 	mkmi_log("Got region [0x%x - 0x%x]\r\n", levelsVPS[0].Object, levelsVPS[0].Object + levelsVPS[0].Size);
@@ -113,7 +113,7 @@ extern "C" int Main(uptr rsdp) {
 	mkmi_log("Returned: %d\r\n", MMapIntermediate(levelsVPS[2], 3, addr, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE));
 	mkmi_log("Returned: %d\r\n", MMapIntermediate(levelsVPS[1], 2, addr, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE));
 	mkmi_log("Returned: %d\r\n", MMapIntermediate(levelsVPS[0], 1, addr, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE));
-	for (int i = 0; i < 16; ++i) {
+	for (int i = 0; i < 64; ++i) {
 		mkmi_log("Returned: %d\r\n", MMapPage(framesF[i], addr + i * PAGE_SIZE, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE));
 	}
 
@@ -121,6 +121,7 @@ extern "C" int Main(uptr rsdp) {
 	*(u32*)(addr) = 0xDEAD;
 	mkmi_log("Result: 0x%x\r\n", *(u32*)addr);
 	
+	Heap kernelHeap(addr, 64 * PAGE_SIZE);
 
 	/*
 	Capability capability;

@@ -29,7 +29,25 @@ int GetUntypedRegion(usize size, Capability *capability);
 int MMapIntermediate(Capability cap, usize level, uptr addr, usize flags);
 int MMapPage(Capability cap, uptr addr, usize flags);
 
-void SetupHeap();
+class Heap {
+public:
+	struct HeapBlock {
+		HeapBlock *Next, *Previous;
+		usize Size;
+		bool IsFree;
+		u8 DataStart;
+	};
+
+	Heap(uptr address, usize initialSize);
+	void *Malloc(usize size);
+	void Free(void *ptr);
+	void ExpandHeap(usize amount);
+private:
+	HeapBlock *RootBlock;
+
+	uptr Address;
+	usize Size;
+};
 
 /**
  * MMap when called gives some memory from a specific address
@@ -37,4 +55,5 @@ void SetupHeap();
  */
 #define MMAP_START_ADDR 0x2000000000
 void SetupMMap();
-void *MMap(usize size, usize flags);
+void *MMap(Capability capability, usize flags);
+void UnMap(void *ptr);
