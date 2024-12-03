@@ -15,7 +15,12 @@ struct VirtualMemoryHeader {
 	usize LVL1Length;
 };
 
-extern VirtualMemoryHeader headers[MAX_MEMORY_HEADERS];
+void InitializeUntypedMemory(Capability *map, bool *usable, usize count);
+
+#define GUNTPD_OK 0
+#define GUNTPD_NOMEM 1
+
+int GetUntypedRegion(usize size, Capability *capability);
 
 #define MMAP_OK 0
 #define MMAP_ERR  128
@@ -24,4 +29,4 @@ extern VirtualMemoryHeader headers[MAX_MEMORY_HEADERS];
 #define MMAP_LVL1 1
 
 int MMapIntermediate(Capability cap, usize level, uptr addr, usize flags);
-int MMap(Capability cap, uptr addr, usize flags);
+int MMapPage(Capability cap, uptr addr, usize flags);

@@ -5,6 +5,7 @@
 #include <cdefs.h>
 #include <object.hpp>
 
+#include "capability.hpp"
 #include "memory.hpp"
 
 struct RSDP_t {
@@ -55,18 +56,6 @@ static volatile ContainerBindings bindings = {
 	.SyscallHandler = SyscallHandler,
 };
 
-void SplitCapability(Capability capability, Capability *capabilities, usize splitCount) {
-	__fast_syscall(SYSCALL_VECTOR_SPLIT_CAPABILITY, capability.Object, (uptr)capabilities, PAGE_SIZE, 0, splitCount, 0);
-	for (usize i = 0; i < splitCount; ++i) {
-		mkmi_log("Capability: 0x%x\r\n", capabilities[i].Object);
-	}
-}
-
-void RetypeCapability(Capability capability, Capability *result, OBJECT_TYPE kind) {
-	__fast_syscall(SYSCALL_VECTOR_RETYPE_CAPABILITY, capability.Object, kind, (uptr)result, 1,  0, 0);
-	mkmi_log("Capability: 0x%x\r\n", result->Object);
-}
-
 void GetVendor() {
 	u32 vendor[4] = {};
 	u32 null = 0;
@@ -80,28 +69,41 @@ extern "C" int Main(uptr rsdp) {
 	GetVendor();
 
 	Capability untyped;
-	usize i;
-	for (i = 0; ; ++i) {
-		__fast_syscall(SYSCALL_VECTOR_GET_UNTYPED_CAPABILITY, (uptr)&untyped, i, 0, 0, 0, 0);
+	usize count;
+	for (count = 0; ; ++count) {
+		__fast_syscall(SYSCALL_VECTOR_GET_UNTYPED_CAPABILITY, (uptr)&untyped, count, 0, 0, 0, 0);
 		if (untyped.Type != UNTYPED_FRAMES) break;
 	}
 
-	Capability untypedArray[i];
-	for (i = 0;; ++i) {
+	Capability untypedArray[count];
+	bool usable[count];
+	for (usize i = 0; i < count; ++i) {
 		__fast_syscall(SYSCALL_VECTOR_GET_UNTYPED_CAPABILITY, (uptr)&untypedArray[i], i, 0, 0, 0, 0);
-		if (untypedArray[i].Type != UNTYPED_FRAMES) break;
-		mkmi_log("Capability: 0x%x %d\r\n", untypedArray[i].Object, untypedArray[i].Size);
+		mkmi_log("Got region [0x%x - 0x%x]\r\n", untypedArray[i].Object, untypedArray[i].Object + untypedArray[i].Size);
+		if (untypedArray[i].Type != UNTYPED_FRAMES) { usable[i] = false; break; };
+		usable[i] = true;
 	}
 		
-	mkmi_log("Total of %d capabilities available\r\n", i);
-	
+	mkmi_log("Total of %d capabilities available\r\n", count);
+
+	InitializeUntypedMemory(untypedArray, usable, count);
+
+	Capability frame;
+	Capability levels;
+	GetUntypedRegion(PAGE_SIZE * 3, &levels);
+	GetUntypedRegion(PAGE_SIZE, &frame);
+
+	mkmi_log("Got region [0x%x - 0x%x]\r\n", levels.Object, levels.Object + levels.Size);
+	mkmi_log("Got region [0x%x - 0x%x]\r\n", frame.Object, frame.Object + frame.Size);
+
+	/*
 	Capability capability;
 	uptr capabilityAddr;
-	__fast_syscall(SYSCALL_VECTOR_ADDRESS_CAPABILITY, 0, UNTYPED_FRAMES, (uptr)&capability, (uptr)&capabilityAddr, 0, 0);
+	__fast_syscall(SYSCALL_VECTOR_ADDRESS_CAPABILITY, untypedArray[largestCapabilityIndex].Object, UNTYPED_FRAMES, (uptr)&capability, (uptr)&capabilityAddr, 0, 0);
 	mkmi_log("Capability: 0x%x -> 0x%x\r\n", capabilityAddr, capability.Object);
 	mkmi_log("Capability has size of %d bytes or %d pages.\r\n", capability.Size, capability.Size / PAGE_SIZE);
 
-	usize splitCount = capability.Size / PAGE_SIZE;
+	usize splitCount = 16 + 3;
 	usize pages = splitCount - 3;
 
 	Capability capabilities[splitCount];
@@ -120,12 +122,12 @@ extern "C" int Main(uptr rsdp) {
 	
 	uptr addr = 0;
 
-	MMapIntermediate(levels[2], 3, addr, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
-	MMapIntermediate(levels[1], 2, addr, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
-	MMapIntermediate(levels[0], 1, addr, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
+	mkmi_log("Returned: %d\r\n", MMapIntermediate(levels[2], 3, addr, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE));
+	mkmi_log("Returned: %d\r\n", MMapIntermediate(levels[1], 2, addr, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE));
+	mkmi_log("Returned: %d\r\n", MMapIntermediate(levels[0], 1, addr, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE));
 
 	for (usize i = 0; i < pages; ++i) {
-		MMap(frame[i], addr + i * PAGE_SIZE, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
+		mkmi_log("Returned: %d\r\n", MMapPage(frame[i], addr + i * PAGE_SIZE, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE));
 	}
 
 	VirtualMemoryHeader heapHeader = headers[0];
@@ -135,7 +137,7 @@ extern "C" int Main(uptr rsdp) {
 
 
 	mkmi_log("Trying to access page...\r\n");
-	*(u32*)addr = 0xDEAD;
+	*(u32*)(addr) = 0xDEAD;
 	mkmi_log("Result: 0x%x\r\n", *(u32*)addr);
 
 	uptr apic = 0xFEE00000;
@@ -150,23 +152,7 @@ extern "C" int Main(uptr rsdp) {
 
 	mkmi_log("Apic id: %x\r\n", *(u8*)(apicMap + 0x20));
 	mkmi_log("Apic ver: %x\r\n", *(u8*)(apicMap + 0x30));
-
-	uptr rsdpMap = apicMap + PAGE_SIZE;
-	mkmi_log("rsdp at: 0x%x\r\n", rsdp);
-	Capability rsdpCapability;
-	RSDP_t *rsdpTable = NULL;
-	if (rsdp % PAGE_SIZE) {
-		uptr rsdpAddr = rsdp - rsdp % PAGE_SIZE;
-		__fast_syscall(SYSCALL_VECTOR_CREATE_FROM_MEM_CAPABILITY, rsdpAddr, (uptr)&rsdpCapability, 0, 0, 0, 0);
-		__fast_syscall(SYSCALL_VECTOR_MAP_CAPABILITY, rsdpCapability.Object, MMIO_MEMORY, rsdpMap, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE , 0, 0);
-		rsdpTable = (RSDP_t*)(rsdpMap + (rsdp - rsdpAddr));
-	} else {
-		__fast_syscall(SYSCALL_VECTOR_CREATE_FROM_MEM_CAPABILITY, rsdp, (uptr)&rsdpCapability, 0, 0, 0, 0);
-		__fast_syscall(SYSCALL_VECTOR_MAP_CAPABILITY, rsdpCapability.Object, MMIO_MEMORY, rsdpMap, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE , 0, 0);
-		rsdpTable = (RSDP_t*)rsdpMap;
-	}
-
-	mkmi_log("RSDP at: 0x%x\r\n", rsdpTable);
+*/
 
 	return 0;
 }
