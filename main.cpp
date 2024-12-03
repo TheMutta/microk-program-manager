@@ -108,7 +108,7 @@ extern "C" int Main(uptr rsdp) {
 	mkmi_log("Got region [0x%x - 0x%x]\r\n", levelsVPS[2].Object, levelsVPS[2].Object + levelsVPS[2].Size);
 	mkmi_log("Got region [0x%x - 0x%x]\r\n", framesF[0].Object, framesF[0].Object + framesF[0].Size);
 
-	uptr addr = 0;
+	uptr addr = 0x1000;
 
 	mkmi_log("Returned: %d\r\n", MMapIntermediate(levelsVPS[2], 3, addr, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE));
 	mkmi_log("Returned: %d\r\n", MMapIntermediate(levelsVPS[1], 2, addr, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE));
@@ -122,6 +122,12 @@ extern "C" int Main(uptr rsdp) {
 	mkmi_log("Result: 0x%x\r\n", *(u32*)addr);
 	
 	Heap kernelHeap(addr, 64 * PAGE_SIZE);
+	mkmi_log("Returned: 0x%x\r\n", kernelHeap.Malloc(128));
+	mkmi_log("Returned: 0x%x\r\n", kernelHeap.Malloc(256));
+	mkmi_log("Returned: 0x%x\r\n", kernelHeap.Malloc(64));
+	mkmi_log("Returned: 0x%x\r\n", kernelHeap.Malloc(32));
+	mkmi_log("Returned: 0x%x\r\n", kernelHeap.Malloc(64));
+	mkmi_log("Returned: 0x%x\r\n", kernelHeap.Malloc(512));
 
 	/*
 	Capability capability;

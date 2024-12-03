@@ -48,9 +48,10 @@ int GetUntypedRegion(usize size, Capability *capability) {
 int MMapPage(Capability cap, uptr addr, usize flags) {
 	VirtualMemoryHeader *header = &Headers[addr / MAX_LVL3_LENGTH];
 
+	/*
 	if (header->LVL3Start > addr || header->LVL3Start + header->LVL3Length < addr + cap.Size || header->LVL3Length == 0) return MMAP_LVL3;
 	if (header->LVL2Start > addr || header->LVL2Start + header->LVL2Length < addr + cap.Size || header->LVL2Length == 0) return MMAP_LVL2;
-	if (header->LVL1Start > addr || header->LVL1Start + header->LVL1Length < addr + cap.Size || header->LVL1Length == 0) return MMAP_LVL1;
+	if (header->LVL1Start > addr || header->LVL1Start + header->LVL1Length < addr + cap.Size || header->LVL1Length == 0) return MMAP_LVL1;*/
 
 	MapPage(cap, addr, flags);
 
@@ -69,7 +70,7 @@ int MMapIntermediate(Capability cap, usize level, uptr addr, usize flags) {
 		return MMAP_OK;
 	}
 
-	if (header->LVL3Length == 0) return -MMAP_LVL3;
+	//if (header->LVL3Length == 0) return -MMAP_LVL3;
 
 	if (level == 2) {
 		MapIntermediate(cap, level, addr, flags);
@@ -79,7 +80,7 @@ int MMapIntermediate(Capability cap, usize level, uptr addr, usize flags) {
 		return MMAP_OK;
 	}
 
-	if (header->LVL2Start < addr || header->LVL2Start + header->LVL2Length < addr + cap.Size || header->LVL2Length == 0) return -MMAP_LVL2;
+	//if (header->LVL2Start < addr || header->LVL2Start + header->LVL2Length < addr + cap.Size || header->LVL2Length == 0) return -MMAP_LVL2;
 
 	if (level == 1) {
 		MapIntermediate(cap, level, addr, flags);
@@ -89,7 +90,7 @@ int MMapIntermediate(Capability cap, usize level, uptr addr, usize flags) {
 		return MMAP_OK;
 	}
 
-	if (header->LVL1Start < addr || header->LVL1Start + header->LVL1Length < addr + cap.Size || header->LVL1Length == 0) return -MMAP_LVL1;
+	//if (header->LVL1Start < addr || header->LVL1Start + header->LVL1Length < addr + cap.Size || header->LVL1Length == 0) return -MMAP_LVL1;
 
 	return MMAP_ERR;
 

@@ -1,3 +1,4 @@
+#include <mkmi.h>
 #include "memory.hpp"
 
 Heap::Heap(uptr address, usize initialSize) : Address(address), Size(initialSize) {
@@ -8,17 +9,16 @@ Heap::Heap(uptr address, usize initialSize) : Address(address), Size(initialSize
 }
 
 void *Heap::Malloc(usize size) {
-	HeapBlock *block = RootBlock;
-	while(block) {
+	for(HeapBlock *block = RootBlock; block; block = block->Next) {
 		if (!block->IsFree) continue;
 
 		if (block->Size == size) {
 			block->IsFree = false;
-			return &block->DataStart;
+			return (void*)((uptr)block + sizeof(HeapBlock));
 		} else if (block->Size > size) {
 			// SPLIT
-			HeapBlock *newBlock = (HeapBlock*)((uptr)&block->DataStart + size);
-			newBlock->Size = block->Size - size - sizeof(HeapBlock) + sizeof(u8);
+			HeapBlock *newBlock = (HeapBlock*)((uptr)block + sizeof(HeapBlock) + size);
+			newBlock->Size = block->Size - size - sizeof(HeapBlock);
 			newBlock->IsFree = true;
 			newBlock->Previous = block;
 			newBlock->Next = block->Next;
@@ -29,15 +29,12 @@ void *Heap::Malloc(usize size) {
 
 			block->Next = newBlock;
 
-
 			block->IsFree = false;
-			return &block->DataStart;
+			return (void*)((uptr)block + sizeof(HeapBlock));
 		} else {
 			// TOO SMALL
 			continue;
 		}
-
-		block = block->Next;
 	}
 
 	return NULL;

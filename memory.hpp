@@ -35,7 +35,6 @@ public:
 		HeapBlock *Next, *Previous;
 		usize Size;
 		bool IsFree;
-		u8 DataStart;
 	};
 
 	Heap(uptr address, usize initialSize);
