@@ -88,13 +88,25 @@ extern "C" int Main(uptr rsdp) {
 
 	InitializeUntypedMemory(untypedArray, usable, count);
 
-	Capability frame;
-	Capability levels;
-	GetUntypedRegion(PAGE_SIZE * 3, &levels);
-	GetUntypedRegion(PAGE_SIZE, &frame);
+	Capability frameUt;
+	Capability levelsUt;
+	GetUntypedRegion(PAGE_SIZE * 3, &levelsUt);
+	GetUntypedRegion(PAGE_SIZE, &frameUt);
 
-	mkmi_log("Got region [0x%x - 0x%x]\r\n", levels.Object, levels.Object + levels.Size);
-	mkmi_log("Got region [0x%x - 0x%x]\r\n", frame.Object, frame.Object + frame.Size);
+	mkmi_log("Got region [0x%x - 0x%x]\r\n", levelsUt.Object, levelsUt.Object + levelsUt.Size);
+	mkmi_log("Got region [0x%x - 0x%x]\r\n", frameUt.Object, frameUt.Object + frameUt.Size);
+
+
+	Capability frameF;
+	Capability levelsVPS[3];
+
+	RetypeCapability(frameUt, &frameF, FRAME_MEMORY, 1);
+	RetypeCapability(levelsUt, levelsVPS, VIRTUAL_MEMORY_PAGING_STRUCTURE, 3);
+
+	mkmi_log("Got region [0x%x - 0x%x]\r\n", levelsVPS[0].Object, levelsVPS[0].Object + levelsVPS[0].Size);
+	mkmi_log("Got region [0x%x - 0x%x]\r\n", levelsVPS[1].Object, levelsVPS[1].Object + levelsVPS[1].Size);
+	mkmi_log("Got region [0x%x - 0x%x]\r\n", levelsVPS[2].Object, levelsVPS[2].Object + levelsVPS[2].Size);
+	mkmi_log("Got region [0x%x - 0x%x]\r\n", frameF.Object, frameF.Object + frameF.Size);
 
 	/*
 	Capability capability;

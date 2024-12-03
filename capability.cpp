@@ -9,6 +9,6 @@ void SplitCapability(Capability capability, Capability *capabilities, usize spli
 	__fast_syscall(SYSCALL_VECTOR_SPLIT_CAPABILITY, capability.Object, (uptr)capabilities, splitSize, 0, splitCount, 0);
 }
 
-void RetypeCapability(Capability capability, Capability *result, OBJECT_TYPE kind) {
-	__fast_syscall(SYSCALL_VECTOR_RETYPE_CAPABILITY, capability.Object, kind, (uptr)result, 1,  0, 0);
+void RetypeCapability(Capability capability, Capability *result, OBJECT_TYPE kind, usize count) {
+	__fast_syscall(SYSCALL_VECTOR_RETYPE_CAPABILITY, capability.Object, kind, (uptr)result, count,  0, 0);
 }
