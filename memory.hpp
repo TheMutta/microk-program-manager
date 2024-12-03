@@ -19,7 +19,6 @@ void InitializeUntypedMemory(Capability *map, bool *usable, usize count);
 
 #define GUNTPD_OK 0
 #define GUNTPD_NOMEM 1
-
 int GetUntypedRegion(usize size, Capability *capability);
 
 #define MMAP_OK 0
@@ -27,6 +26,15 @@ int GetUntypedRegion(usize size, Capability *capability);
 #define MMAP_LVL3 3
 #define MMAP_LVL2 2
 #define MMAP_LVL1 1
-
 int MMapIntermediate(Capability cap, usize level, uptr addr, usize flags);
 int MMapPage(Capability cap, uptr addr, usize flags);
+
+void SetupHeap();
+
+/**
+ * MMap when called gives some memory from a specific address
+ * The kernel heap holds the allocated regions for MMap;
+ */
+#define MMAP_START_ADDR 0x2000000000
+void SetupMMap();
+void *MMap(usize size, usize flags);

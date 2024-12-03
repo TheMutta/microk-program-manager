@@ -45,9 +45,6 @@ int GetUntypedRegion(usize size, Capability *capability) {
 	return GUNTPD_NOMEM;
 }
 
-
-
-
 int MMapPage(Capability cap, uptr addr, usize flags) {
 	VirtualMemoryHeader *header = &Headers[addr / MAX_LVL3_LENGTH];
 
