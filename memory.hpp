@@ -52,7 +52,23 @@ private:
  * MMap when called gives some memory from a specific address
  * The kernel heap holds the allocated regions for MMap;
  */
-#define MMAP_START_ADDR 0x2000000000
-void SetupMMap();
-void *MMap(Capability capability, usize flags);
-void UnMap(void *ptr);
+class MemoryMapper {
+public:
+	struct MMapBlock {
+		MMapBlock *Next, *Previous;
+		uptr Addr;
+		usize Size;
+	};
+
+	MemoryMapper(uptr startAddr);
+	void *MMap(Capability capability, usize flags);
+	void UnMap(void *ptr);
+
+	uptr StartAddr;
+
+	uptr LVL4Coverage = -1;
+	uptr LVL3Coverage = MAX_LVL3_LENGTH;
+	uptr LVL2Coverage = MAX_LVL2_LENGTH;
+	uptr LVL1Coverage = MAX_LVL1_LENGTH;
+
+};

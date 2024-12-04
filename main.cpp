@@ -41,10 +41,15 @@ void ExceptionHandler(usize excp, usize errinfo1, usize errinfo2) {
 }
 
 void InterruptHandler() {
+	mkmi_log("Interrupt!\r\n");
 
+	while (true) { }
 }
 
 void SyscallHandler() {
+	mkmi_log("Syscall!\r\n");
+
+	while (true) { }
 
 }
 
@@ -121,13 +126,17 @@ extern "C" int Main(uptr rsdp) {
 	*(u32*)(addr) = 0xDEAD;
 	mkmi_log("Result: 0x%x\r\n", *(u32*)addr);
 	
+
+	uptr apic = 0xFEE00000;
+	mkmi_log ("Apic at: 0x%x\r\n", apic);
+
+	Capability apicCapability;
+	__fast_syscall(SYSCALL_VECTOR_CREATE_FROM_MEM_CAPABILITY, apic, (uptr)&apicCapability, 0, 0, 0, 0);
+
 	Heap kernelHeap(addr, 64 * PAGE_SIZE);
-	mkmi_log("Returned: 0x%x\r\n", kernelHeap.Malloc(128));
-	mkmi_log("Returned: 0x%x\r\n", kernelHeap.Malloc(256));
-	mkmi_log("Returned: 0x%x\r\n", kernelHeap.Malloc(64));
-	mkmi_log("Returned: 0x%x\r\n", kernelHeap.Malloc(32));
-	mkmi_log("Returned: 0x%x\r\n", kernelHeap.Malloc(64));
-	mkmi_log("Returned: 0x%x\r\n", kernelHeap.Malloc(512));
+
+	MemoryMapper memoryMapper(0x400000000);
+	memoryMapper.MMap(apicCapability, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
 
 	/*
 	Capability capability;
@@ -173,11 +182,7 @@ extern "C" int Main(uptr rsdp) {
 	*(u32*)(addr) = 0xDEAD;
 	mkmi_log("Result: 0x%x\r\n", *(u32*)addr);
 
-	uptr apic = 0xFEE00000;
-	mkmi_log ("Apic at: 0x%x\r\n", apic);
 
-	Capability apicCapability;
-	__fast_syscall(SYSCALL_VECTOR_CREATE_FROM_MEM_CAPABILITY, apic, (uptr)&apicCapability, 0, 0, 0, 0);
 	mkmi_log("Capability: 0x%x -> 0x%x\r\n", capabilityAddr, apicCapability.Object);
 
 	uptr apicMap = addr + pages * PAGE_SIZE;
