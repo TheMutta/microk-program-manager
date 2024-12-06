@@ -41,7 +41,8 @@ void *Heap::Malloc(usize size) {
 }
 
 void Heap::Free(void *ptr) {
-
+	HeapBlock *block = (HeapBlock*)((uptr)ptr - sizeof(HeapBlock));
+	block->IsFree = true;
 }
 	
 void Heap::ExpandHeap(usize amount) {
