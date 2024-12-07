@@ -73,104 +73,17 @@ extern "C" int Main(ContainerInfo *info) {
 	mkmi_log("Total of %d capabilities available\r\n", count);
 
 	InitializeUntypedMemory(untypedArray, usable, count);
-
 	Capability framesUt;
-	Capability levelsUt;
-	GetUntypedRegion(PAGE_SIZE * 3, &levelsUt);
-	GetUntypedRegion(PAGE_SIZE * 64, &framesUt);
-
-	mkmi_log("Got region [0x%x - 0x%x]\r\n", levelsUt.Object, levelsUt.Object + levelsUt.Size);
-	mkmi_log("Got region [0x%x - 0x%x]\r\n", framesUt.Object, framesUt.Object + framesUt.Size);
-
-
-	Capability framesF[64];
-	Capability levelsVPS[3];
-
-	RetypeCapability(framesUt, framesF, FRAME_MEMORY, 64);
-	RetypeCapability(levelsUt, levelsVPS, VIRTUAL_MEMORY_PAGING_STRUCTURE, 3);
-
-	mkmi_log("Got region [0x%x - 0x%x]\r\n", levelsVPS[0].Object, levelsVPS[0].Object + levelsVPS[0].Size);
-	mkmi_log("Got region [0x%x - 0x%x]\r\n", levelsVPS[1].Object, levelsVPS[1].Object + levelsVPS[1].Size);
-	mkmi_log("Got region [0x%x - 0x%x]\r\n", levelsVPS[2].Object, levelsVPS[2].Object + levelsVPS[2].Size);
-	mkmi_log("Got region [0x%x - 0x%x]\r\n", framesF[0].Object, framesF[0].Object + framesF[0].Size);
-
-	uptr addr = 0x1000;
-
-	mkmi_log("Returned: %d\r\n", MMapIntermediate(levelsVPS[2], 3, addr, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE));
-	mkmi_log("Returned: %d\r\n", MMapIntermediate(levelsVPS[1], 2, addr, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE));
-	mkmi_log("Returned: %d\r\n", MMapIntermediate(levelsVPS[0], 1, addr, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE));
-	for (int i = 0; i < 64; ++i) {
-		mkmi_log("Returned: %d\r\n", MMapPage(framesF[i], addr + i * PAGE_SIZE, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE));
-	}
-
-	mkmi_log("Trying to access page...\r\n");
-	*(u32*)(addr) = 0xDEAD;
-	mkmi_log("Result: 0x%x\r\n", *(u32*)addr);
+	GetUntypedRegion(PAGE_SIZE * 1024, &framesUt);
 	
-	Heap kernelHeap(addr, 64 * PAGE_SIZE);
+	uptr heapAddr = 0x1000;
+	MemoryMapper heapMapper(heapAddr);
+	heapMapper.MMap(framesUt, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
+	Heap kernelHeap(heapAddr, 1024 * PAGE_SIZE);
+
+
 	MemoryMapper memoryMapper(0x400000000);
-
 	InitACPI(&memoryMapper, info);
-	
-
-
-/*
-	uptr xsdtRoundedAddr = rsdp->XsdtAddress - rsdp->XsdtAddress % PAGE_SIZE;
-	Capability xsdtCapability;
-	__fast_syscall(SYSCALL_VECTOR_ADDRESS_CAPABILITY, xsdtRoundedAddr, (uptr)&xsdtCapability, 0, 0, 0, 0);
-
-	Capability capability;
-	uptr capabilityAddr;
-	__fast_syscall(SYSCALL_VECTOR_ADDRESS_CAPABILITY, untypedArray[largestCapabilityIndex].Object, UNTYPED_FRAMES, (uptr)&capability, (uptr)&capabilityAddr, 0, 0);
-	mkmi_log("Capability: 0x%x -> 0x%x\r\n", capabilityAddr, capability.Object);
-	mkmi_log("Capability has size of %d bytes or %d pages.\r\n", capability.Size, capability.Size / PAGE_SIZE);
-
-	usize splitCount = 16 + 3;
-	usize pages = splitCount - 3;
-
-	Capability capabilities[splitCount];
-	SplitCapability(capability, capabilities, splitCount);
-
-	Capability frame[pages];
-	Capability levels[3];
-	for (usize i = 0; i < pages; ++i) {
-		RetypeCapability(capabilities[i], &frame[i], FRAME_MEMORY);
-	}
-
-	for (int i = 0; i < 3; ++i) {
-		RetypeCapability(capabilities[i + pages], &levels[i], VIRTUAL_MEMORY_PAGING_STRUCTURE);
-		mkmi_log("Capability: 0x%x -> 0x%x\r\n", capabilityAddr, levels[i].Object);
-	}
-	
-	uptr addr = 0;
-
-	mkmi_log("Returned: %d\r\n", MMapIntermediate(levels[2], 3, addr, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE));
-	mkmi_log("Returned: %d\r\n", MMapIntermediate(levels[1], 2, addr, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE));
-	mkmi_log("Returned: %d\r\n", MMapIntermediate(levels[0], 1, addr, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE));
-
-	for (usize i = 0; i < pages; ++i) {
-		mkmi_log("Returned: %d\r\n", MMapPage(frame[i], addr + i * PAGE_SIZE, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE));
-	}
-
-	VirtualMemoryHeader heapHeader = headers[0];
-	mkmi_log("Covered [0x%x - 0x%x]\r\n", heapHeader.LVL1Start, heapHeader.LVL1Start + heapHeader.LVL1Length);
-	mkmi_log("Covered [0x%x - 0x%x]\r\n", heapHeader.LVL2Start, heapHeader.LVL2Start + heapHeader.LVL2Length);
-	mkmi_log("Covered [0x%x - 0x%x]\r\n", heapHeader.LVL3Start, heapHeader.LVL3Start + heapHeader.LVL3Length);
-
-
-	mkmi_log("Trying to access page...\r\n");
-	*(u32*)(addr) = 0xDEAD;
-	mkmi_log("Result: 0x%x\r\n", *(u32*)addr);
-
-
-	mkmi_log("Capability: 0x%x -> 0x%x\r\n", capabilityAddr, apicCapability.Object);
-
-	uptr apicMap = addr + pages * PAGE_SIZE;
-	__fast_syscall(SYSCALL_VECTOR_MAP_CAPABILITY, apicCapability.Object, MMIO_MEMORY, apicMap, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE , 0, 0);
-
-
-*/
-
 	return 0;
 }
 
