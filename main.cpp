@@ -6,6 +6,7 @@
 #include <object.hpp>
 
 #include "capability.hpp"
+#include "acpi.hpp"
 #include "memory.hpp"
 
 void ExceptionHandler(usize excp, usize errinfo1, usize errinfo2) {
@@ -27,58 +28,7 @@ void SyscallHandler() {
 	while (true) { }
 
 }
-struct RSDP_t {
-	char Signature[8];
-	u8 Checksum;
-	char OEMID[6];
-	u8 Revision;
-	u32 RsdtAddress;
 
-	u32 Length;
-	u64 XsdtAddress;
-	u8 ExtendedChecksum;
-	u8 reserved[3];
-} __attribute__ ((packed));
-
-struct SDTHeader_t {
-	char Signature[4];
-	u32 Length;
-	u8 Revision;
-	u8 Checksum;
-	char OEMID[6];
-	char OEMTableID[8];
-	u32 OEMRevision;
-	u32 CreatorID;
-	u32 CreatorRevision;
-} __attribute__ ((packed));
-struct MCFGEntry_t {
-	uptr BaseAddress;
-	u16 PCISeg;
-	u8 StartPCIBus;
-	u8 EndPCIBus;
-	u8 Reserved[4];
-}__attribute__((packed));
-
-struct MCFG_t : public SDTHeader_t {
-	u8 Reserved[8];
-
-	MCFGEntry_t FirstEntry;
-}__attribute__((packed));
-
-struct PCIDeviceHeader_t {
-	u16 VendorID;
-	u16 DeviceID;
-	u16 Command;
-	u16 Status;
-	u8 RevisionID;
-	u8 ProgIF;
-	u8 Subclass;
-	u8 Class;
-	u8 CacheLineSize;
-	u8 LatencyTimer;
-	u8 HeaderType;
-	u8 BIST;
-}__attribute__((packed));
 
 
 __attribute__((used, section(".microkosm_bindings")))
@@ -160,60 +110,8 @@ extern "C" int Main(ContainerInfo *info) {
 	Heap kernelHeap(addr, 64 * PAGE_SIZE);
 	MemoryMapper memoryMapper(0x400000000);
 
-	Capability rsdpCapability;
-	__fast_syscall(SYSCALL_VECTOR_ADDRESS_CAPABILITY, info->x86_64.RSDPCapability, (uptr)&rsdpCapability, 0, 0, 0, 0);
-
-	void *rsdpAddr = memoryMapper.MMap(rsdpCapability, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
-	RSDP_t *rsdp = (RSDP_t*)((uptr)rsdpAddr + info->x86_64.RSDPOffset);
-	mkmi_log("rsdp at 0x%x\r\n", rsdp);
-
-	{
-		char signature[9] = { '\0' };
-		for (int i = 0; i < 8; ++i) {
-			signature[i] = rsdp->Signature[i];
-		}
+	InitACPI(&memoryMapper, info);
 	
-		mkmi_log("Signature: %s\r\n", signature);
-	}
-
-	mkmi_log("RSDT: 0x%x\r\n", rsdp->RsdtAddress);
-	mkmi_log("XSDT: 0x%x\r\n", rsdp->XsdtAddress);
-
-	uptr sdtAddr = rsdp->XsdtAddress;
-	ROUND_DOWN_TO(sdtAddr, PAGE_SIZE);
-
-	Capability xsdtCapability;
-	__fast_syscall(SYSCALL_VECTOR_ADDRESS_CAPABILITY, sdtAddr, (uptr)&xsdtCapability, 0, 0, 0, 0);
-	void *xsdtAddr = memoryMapper.MMap(xsdtCapability, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
-	SDTHeader_t *xsdt = (SDTHeader_t*)((uptr)xsdtAddr + (rsdp->XsdtAddress % PAGE_SIZE));
-
-	{
-		char signature[5] = { '\0' };
-		for (int i = 0; i < 4; ++i) {
-			signature[i] = xsdt->Signature[i];
-		}
-		
-		mkmi_log("Signature: %s\r\n", signature);
-	}
-
-	int entries = (xsdt->Length - sizeof(SDTHeader_t)) / 8;
-
-	for (int i = 0; i < entries; i++) {
-		char sig[5] = { '\0' };
-		uptr *ptr = (uptr*)((uptr)xsdt + sizeof(SDTHeader_t) + i * 8);
-
-		mkmi_log(" -> 0x%x\r\n", ptr);
-
-		Capability sdtCapability;
-		__fast_syscall(SYSCALL_VECTOR_ADDRESS_CAPABILITY, *ptr, (uptr)&sdtCapability, 0, 0, 0, 0);
-		void *sdtAddr = memoryMapper.MMap(sdtCapability, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
-		SDTHeader_t *sdt = (SDTHeader_t*)((uptr)sdtAddr);
-
-		memcpy(sig, sdt->Signature, 4);
-		mkmi_log("%d: 0x%x -> %s\r\n", i, *ptr, sig);
-	}
-
-
 
 
 /*
