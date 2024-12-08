@@ -3,7 +3,7 @@
 
 #define DEVICE_ACK   1
 #define DRIVER_LOAD  2
-#define DRIVER_READY 3
+#define DRIVER_READY 4
 #define DEVICE_ERROR 40
 #define DRIVER_FAIL  80
 
@@ -22,19 +22,29 @@ struct VirtIOHeader_t {
 	u16 QueueMSIXVector;
 	u16 QueueEnable;
 	u16 QueueNotifyOff;
-	u32 QueueDescLo;
-	u32 QueueDescHi;
-	u32 QueueAvailLo;
-	u32 QueueAvailHi;
-	u32 QueueUsedLo;
-	u32 QueueUsedHi;
-
-	u16 QueueNotifyData;
-	u16 QueueReset;
-
-	u16 AdminQueueIndex;
-	u16 AdminQueueNum;
+	u64 QueueDesc;
+	u64 QueueAvail;
+	u64 QueueUsed;
 }__attribute__((packed));
+
+struct VirtIOQueueBuffer_t {
+	u64 Address;
+	u32 Length;
+	u16 Flags;
+	u16 Next;
+}__attribute__((packed));
+
+struct VirtIOUsedItem_t {
+    u32 Index;
+    u32 Length;
+}__attribute__((packed));
+
+struct VirtIOAvailableItem_t {
+    u32 Index;
+    u64 dress;
+    u32 length;
+}__attribute__((packed));
+
 
 struct VirtIONetHeader_t {
 	u8 MacAddress[6];
@@ -53,7 +63,7 @@ struct VirtIOBlockHeader_t {
 	/* The capacity (in 512-byte sectors). */
 	u64 Capacity;
 	/* The maximum segment size (if VIRTIO_BLK_F_SIZE_MAX) */
-	u32 size_max;
+	u32 SizeMax;
 	/* The maximum number of segments (if VIRTIO_BLK_F_SEG_MAX) */
 	u32 seg_max;
 	/* geometry of the device (if VIRTIO_BLK_F_GEOMETRY) */

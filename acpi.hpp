@@ -59,12 +59,7 @@ struct PCIDeviceHeader_t {
 }__attribute__((packed));
 
 struct PCIHeader0_t : public PCIDeviceHeader_t {
-	u32 BAR0;
-	u32 BAR1;
-	u32 BAR2;
-	u32 BAR3;
-	u32 BAR4;
-	u32 BAR5;
+	u32 BAR[6];
 	u32 CardbusCISPointer;
 	u16 SunbystemVendorID;
 	u16 SubsystemID;
@@ -79,8 +74,7 @@ struct PCIHeader0_t : public PCIDeviceHeader_t {
 }__attribute__((packed));
 
 struct PCIHeader1_t : public PCIDeviceHeader_t {
-	u32 BAR0;
-	u32 BAR1;
+	u32 BAR[2];
 	u8 PrimaryBusNumber;
 	u8 SecondaryBusNumber;
 	u8 SubordinateBusNumber;
@@ -127,6 +121,17 @@ struct PCIHeader2_t : public PCIDeviceHeader_t {
 	u16 SubsystemDeviceID;
 	u16 SubsystemVendorID;
 	u32 LegacyModeBaseAddress;
+}__attribute__((packed));
+
+struct PCICapability_t {
+	u8 CapID; /* Generic PCI field: PCI_CAP_ID_VNDR */
+	u8 CapNext; /* Generic PCI field: next ptr. */
+	u8 CapLength; /* Generic PCI field: capability length */
+	u8 CfgType;
+	u8 BAR;
+	u8 Padding[3];
+	u32 Offset;
+	u32 Length;
 }__attribute__((packed));
 
 void InitACPI(MemoryMapper *mapper, ContainerInfo *info);

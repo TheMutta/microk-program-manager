@@ -2,10 +2,13 @@
 #include "memory.hpp"
 
 Heap::Heap(uptr address, usize initialSize) : Address(address), Size(initialSize) {
+	memset(Address, 0, initialSize);
+
 	RootBlock = (HeapBlock*)Address;
 	RootBlock->Next = RootBlock->Previous = NULL;
 	RootBlock->Size = Size - sizeof(HeapBlock);
 	RootBlock->IsFree = true;
+
 }
 
 void *Heap::Malloc(usize size) {

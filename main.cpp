@@ -29,8 +29,6 @@ void SyscallHandler() {
 
 }
 
-
-
 __attribute__((used, section(".microkosm_bindings")))
 static volatile ContainerBindings bindings = {
 	.ExceptionHandler = ExceptionHandler,
@@ -74,13 +72,14 @@ extern "C" int Main(ContainerInfo *info) {
 
 	InitializeUntypedMemory(untypedArray, usable, count);
 	Capability framesUt;
-	GetUntypedRegion(PAGE_SIZE * 1024, &framesUt);
+	GetUntypedRegion(PAGE_SIZE * 64, &framesUt);
 	
 	uptr heapAddr = 0x1000;
 	MemoryMapper heapMapper(heapAddr);
-	heapMapper.MMap(framesUt, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
-	Heap kernelHeap(heapAddr, 1024 * PAGE_SIZE);
-
+	Heap kernelHeap((uptr)
+		heapMapper.MMap(framesUt, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE),
+		64 * PAGE_SIZE
+	);
 
 	MemoryMapper memoryMapper(0x400000000);
 	InitACPI(&memoryMapper, info);

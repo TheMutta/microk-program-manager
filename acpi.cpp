@@ -141,47 +141,102 @@ int InitMCFG(MemoryMapper *mapper, MCFG_t *mcfg) {
 
 						if (header0->VendorID == 0x1af4 &&
 						   (header0->DeviceID >= 0x1000 && header0->DeviceID <= 0x107F)) {
-							uptr addr32 = GetBAR(header0->BAR1, 0);
-							mkmi_log("32-bit addr: 0x%x\r\n", addr32);
-							uptr addr64 = GetBAR(header0->BAR4, header0->BAR5);
-							mkmi_log("64-bit addr: 0x%x\r\n", addr64);
+							usize mainBar;
+							usize cfgOffset;
 
-							volatile VirtIOHeader_t *virtio;
-							if (addr64) {
-								Capability barCapability;
-								AddressCapability(addr64, &barCapability);
-								virtio = (volatile VirtIOHeader_t*)mapper->MMap(barCapability, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
-							} else {
-								Capability barCapability;
-								AddressCapability(addr64, &barCapability);
-								virtio = (volatile VirtIOHeader_t*)mapper->MMap(barCapability, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
+							PCICapability_t *pciCapability = (PCICapability_t*)((uptr)header0 + header0->CapabilitiesPointer);
+							for (;;) {
+								mkmi_log("Capability:\r\n"
+									 " ID: %x\r\n"
+									 " Next: 0x%x\r\n"
+									 " Length: 0x%x\r\n"
+									 " CFG Type: 0x%x\r\n"
+									 " BAR: 0x%x\r\n"
+									 " Offset: 0x%x\r\n"
+									 " Length: 0x%x\r\n", 
+									 pciCapability->CapID,
+									 pciCapability->CapNext,
+									 pciCapability->CapLength,
+									 pciCapability->CfgType,
+									 pciCapability->BAR,
+									 pciCapability->Offset,
+									 pciCapability->Length
+									 );
+
+								if (pciCapability->CfgType == 1) {
+									mkmi_log("Main bar is at: %x\r\n", pciCapability->BAR);
+									mainBar = pciCapability->BAR;
+								} else if (pciCapability->CfgType == 4) {
+									mkmi_log("Cfg bar is at: %x\r\n", pciCapability->BAR);
+									mkmi_log("Cfg offset is at: %x\r\n", pciCapability->Offset);
+									cfgOffset = pciCapability->Offset;
+								}
+
+								if (pciCapability->CapNext == 0) break;
+								
+								pciCapability = (PCICapability_t*)((uptr)header0 + pciCapability->CapNext);
 							}
+
+							uptr addr;
+							if (mainBar < 5) {
+								addr = GetBAR(header0->BAR[mainBar], header0->BAR[mainBar + 1]);
+							} else {
+								addr = GetBAR(header0->BAR[mainBar], 0);
+							}
+							Capability barCapability;
+							AddressCapability(addr, &barCapability);
+								
+							volatile VirtIOHeader_t *virtio = (volatile VirtIOHeader_t*)mapper->MMap(barCapability, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
+
+							
+							virtio->DeviceStatus = DEVICE_ACK;
+							virtio->DeviceFeatureSelect = virtio->DeviceFeatures;
+							virtio->DeviceStatus = DEVICE_ACK | DRIVER_LOAD;
 
 							mkmi_log("Device has %d queues\r\n", virtio->NumQueues);
 							for (usize i = 0; i < virtio->NumQueues; ++i) {
 								virtio->QueueSelect = i;
-								mkmi_log("%d -> %dbytes\r\n", i, virtio->QueueSize);
 
-								mkmi_log("MSIX vector: 0x%x\r\n", virtio->QueueMSIXVector);
+								u32 queueSize = virtio->QueueSize;
+								u32 sizeofBuffers = (sizeof(VirtIOQueueBuffer_t) * queueSize);
+								u32 sizeofQueueAvailable = (2*sizeof(u16)) + (queueSize*sizeof(u16)); 
+								u32 sizeofQueueUsed = (2*sizeof(u16))+(queueSize*sizeof(VirtIOUsedItem_t));
+								u32 sizeTotal = sizeofBuffers + sizeofQueueAvailable;
+								ROUND_UP_TO(sizeofQueueUsed, PAGE_SIZE);
+								sizeTotal += sizeofQueueUsed;
+								ROUND_UP_TO(sizeTotal, PAGE_SIZE);
 
-								u64 desc = virtio->QueueDescLo + ((u64)virtio->QueueDescHi << 32);
+								Capability utMemory;
+								GetUntypedRegion(sizeTotal, &utMemory);
+								usize pageCount = sizeTotal / PAGE_SIZE;
+								Capability mmioMemory[pageCount];
+								RetypeCapability(utMemory, mmioMemory, MMIO_MEMORY, pageCount);
+
+								mkmi_log("Memory region for queue: 0x%x %d\r\n", mmioMemory[0].Object, sizeTotal);
+
+								uptr addr = mmioMemory[0].Object;
+								virtio->QueueDesc = addr;
+								virtio->QueueAvail = addr + sizeofBuffers;
+								virtio->QueueUsed = ((addr + sizeofBuffers + sizeofQueueAvailable +0xFFF)&~0xFFF);
+
+								u64 desc = virtio->QueueDesc;
 								mkmi_log("Desc: 0x%x\r\n", desc);
-								u64 avail = virtio->QueueAvailLo + ((u64)virtio->QueueAvailHi << 32);
+								u64 avail = virtio->QueueAvail;
 								mkmi_log("Avail: 0x%x\r\n", avail);
-								u64 used = virtio->QueueUsedLo + ((u64)virtio->QueueUsedHi << 32);
+								u64 used = virtio->QueueUsed;
 								mkmi_log("Used: 0x%x\r\n", used);
+
+								virtio->QueueEnable = 1;
 							}
 
-							virtio->DeviceStatus = DEVICE_ACK;
 
 							switch(header0->SubsystemID) {
 								case 0x1:
 								case 0x41: {
-									virtio->DeviceStatus = DEVICE_ACK | DRIVER_LOAD;
-									virtio->DeviceFeatureSelect = virtio->DeviceFeatures;
 									mkmi_log("VirtIO Network Adapter\r\n");
-									/*
-									VirtIONetHeader_t *network;
+									virtio->DeviceStatus = DEVICE_ACK | DRIVER_LOAD | DRIVER_READY;
+									
+									VirtIONetHeader_t *network = (VirtIONetHeader_t*)((uptr)virtio + cfgOffset);
 									mkmi_log("MAC Address: %x-%x-%x-%x-%x-%x\r\n",
 										network->MacAddress[0],
 										network->MacAddress[1],
@@ -189,17 +244,27 @@ int InitMCFG(MemoryMapper *mapper, MCFG_t *mcfg) {
 										network->MacAddress[3],
 										network->MacAddress[4],
 										network->MacAddress[5]
-										);*/
+										);
 									}
 									break;
 								case 0x2:
 								case 0x42: {
-									virtio->DeviceStatus = DEVICE_ACK | DRIVER_LOAD;
+									virtio->DeviceStatus = DEVICE_ACK | DRIVER_LOAD | DRIVER_READY;
 									mkmi_log("VirtIO Block Device\r\n");
 
+									VirtIOBlockHeader_t *block = (VirtIOBlockHeader_t*)((uptr)virtio + cfgOffset);
+									mkmi_log("Capacity: %d (%dMB)\r\n", block->Capacity, block->Capacity * 512 / 1024 / 1024);
 									/*
-									VirtIOBlockHeader_t *block;
-									mkmi_log("Capacity: %d\r\n", block->Capacity);*/
+									Capability descCapability;
+									virtio->QueueSelect = 0;
+									AddressCapability(virtio->QueueDesc, &descCapability);
+									void *desc = mapper->MMap(descCapability,
+										PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
+
+									VirtIOQueueBuffer_t *buf = (VirtIOQueueBuffer_t*)desc;
+									buf->addr = 0;
+									desc->len = 0;
+									desc->flags*/
 									}
 									break;
 								case 0x3:
