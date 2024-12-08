@@ -1,5 +1,6 @@
 #include "acpi.hpp"
 #include "capability.hpp"
+#include "virtio.hpp"
 
 #include <mkmi.h>
 
@@ -64,38 +65,23 @@ void InitACPI(MemoryMapper *mapper, ContainerInfo *info) {
 
 	}
 }
-/*
-inline static void CheckBar(u32 bar, u32 nextBar) {
-	KInfo *info = GetInfo();
 
+uptr GetBAR(u32 bar, u32 nextBar) {
 	if (bar & 0b1) {
-		// IO SPACE BAR
-		// TODO: manage io ports
 		uptr addr = bar & 0xFFF0;
-		if (addr != 0) {
-			mkmi_log("    16 bit BAR at 0x%x\r\n", addr);
-		}
+		return addr;
 	} else {
-		u8 type = (bar & 0b110 >> 1);
+		u8 type = ((bar & 0b110) >> 1);
 		if (type == 0) {
-			// 32 bit bar
 			uptr addr = bar & 0xFFFFFFF0;
-			if (addr != 0) {
-				mkmi_log("    32 bit BAR at 0x%x\r\n", addr);
-				PMM::CheckSpace(info->RootCSpace, DEFAULT_CHECK_SPACE);
-				CAPABILITY::GenerateCapability(info->RootCSpace, MMIO_MEMORY, addr, ACCESS | READ | WRITE);
-			}
+			return addr;
 		} else if (type == 2) {
 			//64 bit bar
 			uptr addr = ((bar & 0xFFFFFFF0) + (((uptr)nextBar & 0xFFFFFFFF) << 32));
-			if (addr != 0) {
-				mkmi_log("    64 bit BAR at 0x%x\r\n", addr);
-				PMM::CheckSpace(info->RootCSpace, DEFAULT_CHECK_SPACE);
-				CAPABILITY::GenerateCapability(info->RootCSpace, MMIO_MEMORY, addr, ACCESS | READ | WRITE);
-			}
+			return addr;
 		}
 	}
-}*/
+}
 
 int InitMCFG(MemoryMapper *mapper, MCFG_t *mcfg) {
 	uptr currentPtr = (uptr)&mcfg->FirstEntry;
@@ -121,7 +107,7 @@ int InitMCFG(MemoryMapper *mapper, MCFG_t *mcfg) {
 			if(header->DeviceID == 0) continue;
 			if(header->DeviceID == 0xFFFF) continue;
 			
-			mkmi_log("Bus addr: 0x%x\r\n", busAddress);
+			//mkmi_log("Bus addr: 0x%x\r\n", busAddress);
 
 			for (usize device = 0; device < 32; ++device) {
 				u64 offset = device << 15;
@@ -134,7 +120,7 @@ int InitMCFG(MemoryMapper *mapper, MCFG_t *mcfg) {
 				if(header->DeviceID == 0) continue;
 				if(header->DeviceID == 0xFFFF) continue;
 				
-				mkmi_log(" Device addr: 0x%x\r\n", deviceAddress);
+				//mkmi_log(" Device addr: 0x%x\r\n", deviceAddress);
 
 				for (usize function = 0; function < 8; ++function) {
 					u64 offset = function << 12;
@@ -147,12 +133,110 @@ int InitMCFG(MemoryMapper *mapper, MCFG_t *mcfg) {
 					if(header->DeviceID == 0) continue;
 					if(header->DeviceID == 0xFFFF) continue;
 					
-					mkmi_log("  Function addr: 0x%x\r\n", functionAddress);
-					mkmi_log("   ID: %x:%x\r\n", header->DeviceID, header->VendorID);
+					//mkmi_log("  Function addr: 0x%x\r\n", functionAddress);
+					//mkmi_log("   ID: %x:%x\r\n", header->DeviceID, header->VendorID);
 
 					if (header->HeaderType == 0) {
 						PCIHeader0_t *header0 = (PCIHeader0_t*)header;
-						mkmi_log("   Type 0\r\n"
+
+						if (header0->VendorID == 0x1af4 &&
+						   (header0->DeviceID >= 0x1000 && header0->DeviceID <= 0x107F)) {
+							uptr addr32 = GetBAR(header0->BAR1, 0);
+							mkmi_log("32-bit addr: 0x%x\r\n", addr32);
+							uptr addr64 = GetBAR(header0->BAR4, header0->BAR5);
+							mkmi_log("64-bit addr: 0x%x\r\n", addr64);
+
+							volatile VirtIOHeader_t *virtio;
+							if (addr64) {
+								Capability barCapability;
+								AddressCapability(addr64, &barCapability);
+								virtio = (volatile VirtIOHeader_t*)mapper->MMap(barCapability, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
+							} else {
+								Capability barCapability;
+								AddressCapability(addr64, &barCapability);
+								virtio = (volatile VirtIOHeader_t*)mapper->MMap(barCapability, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
+							}
+
+							mkmi_log("Device has %d queues\r\n", virtio->NumQueues);
+							for (usize i = 0; i < virtio->NumQueues; ++i) {
+								virtio->QueueSelect = i;
+								mkmi_log("%d -> %dbytes\r\n", i, virtio->QueueSize);
+
+								mkmi_log("MSIX vector: 0x%x\r\n", virtio->QueueMSIXVector);
+
+								u64 desc = virtio->QueueDescLo + ((u64)virtio->QueueDescHi << 32);
+								mkmi_log("Desc: 0x%x\r\n", desc);
+								u64 avail = virtio->QueueAvailLo + ((u64)virtio->QueueAvailHi << 32);
+								mkmi_log("Avail: 0x%x\r\n", avail);
+								u64 used = virtio->QueueUsedLo + ((u64)virtio->QueueUsedHi << 32);
+								mkmi_log("Used: 0x%x\r\n", used);
+							}
+
+							virtio->DeviceStatus = DEVICE_ACK;
+
+							switch(header0->SubsystemID) {
+								case 0x1:
+								case 0x41: {
+									virtio->DeviceStatus = DEVICE_ACK | DRIVER_LOAD;
+									virtio->DeviceFeatureSelect = virtio->DeviceFeatures;
+									mkmi_log("VirtIO Network Adapter\r\n");
+									/*
+									VirtIONetHeader_t *network;
+									mkmi_log("MAC Address: %x-%x-%x-%x-%x-%x\r\n",
+										network->MacAddress[0],
+										network->MacAddress[1],
+										network->MacAddress[2],
+										network->MacAddress[3],
+										network->MacAddress[4],
+										network->MacAddress[5]
+										);*/
+									}
+									break;
+								case 0x2:
+								case 0x42: {
+									virtio->DeviceStatus = DEVICE_ACK | DRIVER_LOAD;
+									mkmi_log("VirtIO Block Device\r\n");
+
+									/*
+									VirtIOBlockHeader_t *block;
+									mkmi_log("Capacity: %d\r\n", block->Capacity);*/
+									}
+									break;
+								case 0x3:
+								case 0x43:
+									mkmi_log("VirtIO Console\r\n");
+									break;
+								case 0x4:
+								case 0x44:
+									mkmi_log("VirtIO RNG\r\n");
+									break;
+								case 0x5:
+								case 0x45:
+									mkmi_log("VirtIO Memory Ballooning\r\n");
+									break;
+								case 0x6:
+								case 0x46:
+									mkmi_log("VirtIO IO Memory\r\n");
+									break;
+								case 0x7:
+								case 0x47:
+									mkmi_log("VirtIO IO RPMSG\r\n");
+									break;
+								case 0x8:
+								case 0x48:
+									mkmi_log("VirtIO IO SCSI\r\n");
+									break;
+								case 0x9:
+								case 0x49:
+									mkmi_log("VirtIO IO 9P\r\n");
+									break;
+								case 0xA:
+								case 0x4A:
+									mkmi_log("VirtIO IO WLAN\r\n");
+									break;
+							}
+						}
+						/*mkmi_log("   Type 0\r\n"
 								            "    BAR0: 0x%x\r\n"
 								            "    BAR1: 0x%x\r\n"
 								            "    BAR2: 0x%x\r\n"
@@ -164,23 +248,24 @@ int InitMCFG(MemoryMapper *mapper, MCFG_t *mcfg) {
 									    header0->BAR2,
 									    header0->BAR3,
 									    header0->BAR4,
-									    header0->BAR5);
+									    header0->BAR5);*/
 					} else if (header->HeaderType == 1) {
 						PCIHeader1_t *header1 = (PCIHeader1_t*)header;
+						/*
 						mkmi_log("   Type 1\r\n"
 								            "    BAR0: 0x%x\r\n"
 								            "    BAR1: 0x%x\r\n",
 									    header1->BAR0,
-									    header1->BAR1);
-
+									    header1->BAR1);*/
 					} else if (header->HeaderType == 2) {
+						/*
 						PCIHeader2_t *header2 = (PCIHeader2_t*)header;
 						mkmi_log("   Type 2\r\n"
 								            "    Base: 0x%x\r\n",
-									    header2->CardBusBaseAddress);
+									    header2->CardBusBaseAddress);*/
 					} else {
-						mkmi_log("   Unknown header type: %d\r\n",
-								header->HeaderType);
+						/*mkmi_log("   Unknown header type: %d\r\n",
+								header->HeaderType);*/
 					}
 				}
 			}

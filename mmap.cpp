@@ -12,6 +12,11 @@ MemoryMapper::MemoryMapper(uptr startAddr) : StartAddr(startAddr) {
 	MMapIntermediate(levelsVPS[2], 3, StartAddr, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
 	MMapIntermediate(levelsVPS[1], 2, StartAddr, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
 	MMapIntermediate(levelsVPS[0], 1, StartAddr, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
+
+	LVL4Coverage = MAX_LVL4_LENGTH + startAddr;
+	LVL3Coverage = MAX_LVL3_LENGTH + startAddr;
+	LVL2Coverage = MAX_LVL2_LENGTH + startAddr;
+	LVL1Coverage = MAX_LVL1_LENGTH + startAddr;
 }
 
 void *MemoryMapper::MMap(Capability capability, usize flags) {

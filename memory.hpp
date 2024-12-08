@@ -2,19 +2,10 @@
 #include <cdefs.h>
 #include <object.hpp>
 
-#define MAX_MEMORY_HEADERS 256ULL
 #define MAX_LVL1_LENGTH (512ULL * PAGE_SIZE)
 #define MAX_LVL2_LENGTH (512ULL * MAX_LVL1_LENGTH)
 #define MAX_LVL3_LENGTH (512ULL * MAX_LVL2_LENGTH)
-
-struct VirtualMemoryHeader {
-	uptr LVL3Start;
-	usize LVL3Length;
-	uptr LVL2Start;
-	usize LVL2Length;
-	uptr LVL1Start;
-	usize LVL1Length;
-};
+#define MAX_LVL4_LENGTH (512ULL * MAX_LVL3_LENGTH)
 
 void InitializeUntypedMemory(Capability *map, bool *usable, usize count);
 
@@ -67,9 +58,9 @@ public:
 
 	uptr StartAddr;
 
-	uptr LVL4Coverage = -1;
-	uptr LVL3Coverage = MAX_LVL3_LENGTH;
-	uptr LVL2Coverage = MAX_LVL2_LENGTH;
-	uptr LVL1Coverage = MAX_LVL1_LENGTH;
+	uptr LVL4Coverage;
+	uptr LVL3Coverage;
+	uptr LVL2Coverage;
+	uptr LVL1Coverage;
 
 };
