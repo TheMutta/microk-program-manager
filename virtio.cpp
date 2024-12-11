@@ -53,7 +53,7 @@ VirtIODevice_t *InitializeVirtIODevice(Heap *kernelHeap, MemoryMapper *mapper, P
 	mkmi_log("Device has %d queues\r\n", device->Header->NumQueues);
 
 	device->QueueCount = device->Header->NumQueues;
-	device->Queues = (VirtIOQueue_t*)kernelHeap->Malloc(sizeof(VirtIOQueue_t));
+	device->Queues = (VirtIOQueue_t*)kernelHeap->Malloc(sizeof(VirtIOQueue_t) * device->QueueCount);
 
 	for (usize i = 0; i < device->QueueCount; ++i) {
 		device->Header->QueueSelect = i;

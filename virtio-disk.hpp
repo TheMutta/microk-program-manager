@@ -3,14 +3,14 @@
 
 struct VirtIOBlockConfig_t {
 	u64 Capacity;
-	u32 size_max;
+	u32 SizeMax;
 	u32 seg_max;
 	struct virtio_blk_geometry {
 		u16 cylinders;
 		u8 heads;
 		u8 sectors;
 	} geometry;
-	u32 blk_size;
+	u32 BlockSize;
 	struct virtio_blk_topology {
 		// # of logical blocks per physical block (log2)
 		u8 physical_block_exp;
@@ -30,7 +30,7 @@ struct VirtIOBlockConfig_t {
 	u32 max_write_zeroes_seg;
 	u8 write_zeroes_may_unmap;
 	u8 unused1[3];
-};
+}__attribute__((packed));
 
 struct BlockRequestHeader_t { 
     u32 type; 
@@ -40,6 +40,9 @@ struct BlockRequestHeader_t {
 
 struct VirtIOBlockDevice_t {
 	VirtIODevice_t *Device;
+
+	uptr DiskBuffer;
+	u8* DiskBufferMapping;
 };
 
 VirtIOBlockDevice_t *InitializeVirtIOBlockDevice(Heap *kernelHeap, MemoryMapper *mapper, VirtIODevice_t *device);
