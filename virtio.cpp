@@ -58,7 +58,9 @@ VirtIODevice_t *InitializeVirtIODevice(Heap *kernelHeap, MemoryMapper *mapper, P
 	for (usize i = 0; i < device->QueueCount; ++i) {
 		device->Header->QueueSelect = i;
 
+		device->Queues[i].NextBuffer = 0;
 		u32 queueSize = device->Header->QueueSize;
+		device->Queues[i].QueueSize = queueSize;
 		u32 sizeofBuffers = 16 * queueSize;
 		u32 sizeofQueueAvailable = 6 + 2 * queueSize*sizeof(u16);
 		u32 sizeofQueueUsed = 6 + (8 * queueSize);
@@ -81,10 +83,13 @@ VirtIODevice_t *InitializeVirtIODevice(Heap *kernelHeap, MemoryMapper *mapper, P
 		// TODO: fix these caps
 		uptr addr = mmioMemory[0].Object;
 		device->Header->QueueDesc = addr;
+		device->Queues[i].DescPhys = device->Header->QueueDesc;
 		device->Queues[i].Desc = (volatile VirtIOQueueDesc_t*)mapper->MMap(mmioMemory[0], PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
 		device->Header->QueueAvailable = addr + sizeofBuffers;
+		device->Queues[i].AvailPhys = device->Header->QueueAvailable;
 		device->Queues[i].Avail = (volatile VirtIOQueueAvail_t*)mapper->MMap(mmioMemory[1], PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
 		device->Header->QueueUsed = (addr + sizeofBuffers + sizeofQueueAvailable);
+		device->Queues[i].UsedPhys = device->Header->QueueUsed;
 		device->Queues[i].Used = (volatile VirtIOQueueUsed_t*)mapper->MMap(mmioMemory[2], PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
 
 		u64 desc = device->Header->QueueDesc;
@@ -100,6 +105,43 @@ VirtIODevice_t *InitializeVirtIODevice(Heap *kernelHeap, MemoryMapper *mapper, P
 	return device;
 }
 
-/*void SendBuffer(VirtIODevice_t *device, u16 queueIndex, VirtIOBufferInfo_t, u64 count) {
+void VirtIOSendBuffer(VirtIODevice_t *device, u16 queueIndex, VirtIOBufferInfo_t *bufferInfo, u64 count) {
 	VirtIOQueue_t *queue = &device->Queues[queueIndex];
-}*/
+
+	u16 index = queue->Avail->Index % queue->QueueSize;
+	u16 bufferIndex = queue->NextBuffer;
+	u16 nextBufferIndex;
+
+	unsigned char *buf = (u8*)(&queue->Desc[sizeof(VirtIOQueueDesc_t)*bufferIndex]);
+	unsigned char *buf2 = buf;
+
+	queue->Avail->Ring[index] = bufferIndex;
+	for (usize i = 0; i < count; i++) {
+		nextBufferIndex = (bufferIndex+1) % queue->QueueSize;
+
+		VirtIOBufferInfo_t *bi = &bufferInfo[i];
+		queue->Desc[bufferIndex].Flags = bi->Flags;
+		if (i != (count-1)) {
+			queue->Desc[bufferIndex].Flags |= VIRTQ_DESC_F_NEXT;
+		}
+
+		queue->Desc[bufferIndex].Next = nextBufferIndex;
+		queue->Desc[bufferIndex].Length = bi->Size;
+
+		if (bi->Copy) {
+			queue->Desc[bufferIndex].Address = (uptr)((uptr)buf2 - (uptr)queue->Desc + queue->DescPhys);
+			if (bi->Buffer != NULL) {
+				memcpy(buf2, bi->Buffer, bi->Size);
+			}
+			buf2 += bi->Size;
+		} else {
+			// calling function wants to keep same buffer
+			queue->Desc[bufferIndex].Address = bi->Buffer;
+		}
+		bufferIndex = nextBufferIndex;
+	}
+
+	queue->NextBuffer = bufferIndex;
+
+	queue->Avail->Index++;
+}

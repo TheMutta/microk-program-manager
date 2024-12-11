@@ -71,9 +71,15 @@ struct VirtIOQueue_t {
 	Capability *mmioMemoryArray;
 	usize mmioMemoryCount;
 
+	usize QueueSize;
+	usize NextBuffer;
+
 	volatile VirtIOQueueDesc_t *Desc;
+	uptr DescPhys;
 	volatile VirtIOQueueAvail_t *Avail;
+	uptr AvailPhys;
 	volatile VirtIOQueueUsed_t *Used;
+	uptr UsedPhys;
 };
 
 struct VirtIODevice_t {
@@ -85,6 +91,18 @@ struct VirtIODevice_t {
 	VirtIOQueue_t *Queues;
 };
 
+struct VirtIOBufferInfo_t {
+    uptr Buffer;
+    u64 Size;
+    u16 Flags;
+    
+    // If the user wants to keep same buffer as passed in this struct, use "true".
+    // otherwise, the supplied buffer will be copied in the queues' buffer
+    bool Copy;
+};
+
 VirtIODevice_t *InitializeVirtIODevice(Heap *kernelHeap, MemoryMapper *mapper, PCIHeader0_t *header0, PCICapability_t *pciCapabilityArray, usize pciCapabilityCount);
+
+void VirtIOSendBuffer(VirtIODevice_t *device, u16 queueIndex, VirtIOBufferInfo_t *bufferInfo, u64 count);
 
 

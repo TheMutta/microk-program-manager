@@ -1,6 +1,10 @@
 #pragma once
 #include "virtio.hpp"
 
+#define VIRTIO_BLK_F_SIZE_MAX 1
+#define VIRTIO_BLK_F_SEG_MAX  2
+#define VIRTIO_BLK_F_SEG_GEOMETRY 4
+
 struct VirtIOBlockConfig_t {
 	u64 Capacity;
 	u32 SizeMax;
@@ -32,17 +36,27 @@ struct VirtIOBlockConfig_t {
 	u8 unused1[3];
 }__attribute__((packed));
 
-struct BlockRequestHeader_t { 
-    u32 type; 
-    u32 reserved; 
-    u64 sector; 
-};
+struct VirtIOBlockRequestHeader_t { 
+#define VIRTIO_BLK_T_IN 0
+#define VIRTIO_BLK_T_OUT 1
+#define VIRTIO_BLK_T_FLUSH 4
+#define VIRTIO_BLK_T_DISCARD 11
+#define VIRTIO_BLK_T_WRITE_ZEROES 13
+    u32 Type; 
+    u32 Reserved; 
+    u64 Sector; 
+    u8 Data[];
+    //u8 Status;
+}__attribute__((packed));
 
 struct VirtIOBlockDevice_t {
 	VirtIODevice_t *Device;
 
 	uptr DiskBuffer;
 	u8* DiskBufferMapping;
+
+	uptr RequestBuffer;
+	u8* RequestBufferMapping;
 };
 
 VirtIOBlockDevice_t *InitializeVirtIOBlockDevice(Heap *kernelHeap, MemoryMapper *mapper, VirtIODevice_t *device);
