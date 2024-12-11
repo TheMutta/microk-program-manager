@@ -33,6 +33,8 @@ public:
 	void *Malloc(usize size);
 	void Free(void *ptr);
 	void ExpandHeap(usize amount);
+
+	void DebugDump();
 private:
 	HeapBlock *RootBlock;
 

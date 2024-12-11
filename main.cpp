@@ -72,17 +72,17 @@ extern "C" int Main(ContainerInfo *info) {
 
 	InitializeUntypedMemory(untypedArray, usable, count);
 	Capability framesUt;
-	GetUntypedRegion(PAGE_SIZE * 64, &framesUt);
+	GetUntypedRegion(PAGE_SIZE * 128, &framesUt);
 	
 	uptr heapAddr = 0x1000;
 	MemoryMapper heapMapper(heapAddr);
 	Heap kernelHeap((uptr)
 		heapMapper.MMap(framesUt, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE),
-		64 * PAGE_SIZE
+		128 * PAGE_SIZE
 	);
 
 	MemoryMapper memoryMapper(0x400000000);
-	InitACPI(&memoryMapper, info);
+	InitACPI(&kernelHeap, &memoryMapper, info);
 	return 0;
 }
 

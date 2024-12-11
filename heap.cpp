@@ -8,10 +8,19 @@ Heap::Heap(uptr address, usize initialSize) : Address(address), Size(initialSize
 	RootBlock->Next = RootBlock->Previous = NULL;
 	RootBlock->Size = Size - sizeof(HeapBlock);
 	RootBlock->IsFree = true;
+	
+
+	mkmi_log("HeapSize: %d\r\n", RootBlock->Size);
 
 }
 
 void *Heap::Malloc(usize size) {
+	mkmi_log("Called Malloc for size: %d\r\n", size);
+
+	if (size < 128) {
+		ROUND_UP_TO(size, 128);
+	}
+
 	for(HeapBlock *block = RootBlock; block; block = block->Next) {
 		if (!block->IsFree) continue;
 
@@ -31,7 +40,7 @@ void *Heap::Malloc(usize size) {
 			}
 
 			block->Next = newBlock;
-
+			block->Size = size;
 			block->IsFree = false;
 			return (void*)((uptr)block + sizeof(HeapBlock));
 		} else {
@@ -39,6 +48,9 @@ void *Heap::Malloc(usize size) {
 			continue;
 		}
 	}
+
+	mkmi_log("OUT OF MEMORY\r\n");
+	DebugDump();
 
 	return NULL;
 }
@@ -50,4 +62,11 @@ void Heap::Free(void *ptr) {
 	
 void Heap::ExpandHeap(usize amount) {
 
+}
+
+void Heap::DebugDump() {
+	for(HeapBlock *block = RootBlock; block; block = block->Next) {
+		mkmi_log(" %s block 0x%x of size %d\r\n",
+			block->IsFree ? "Free" :"Used", block, block->Size);
+	}
 }

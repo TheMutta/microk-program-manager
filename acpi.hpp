@@ -134,4 +134,7 @@ struct PCICapability_t {
 	u32 Length;
 }__attribute__((packed));
 
-void InitACPI(MemoryMapper *mapper, ContainerInfo *info);
+void InitACPI(Heap *kernelHeap, MemoryMapper *mapper, ContainerInfo *info);
+
+uptr GetBAR(u32 bar, u32 nextBar);
+uptr GetBAR(u32 bar, u32 nextBar, usize *size);
