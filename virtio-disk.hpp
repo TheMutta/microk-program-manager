@@ -60,3 +60,7 @@ struct VirtIOBlockDevice_t {
 };
 
 VirtIOBlockDevice_t *InitializeVirtIOBlockDevice(Heap *kernelHeap, MemoryMapper *mapper, VirtIODevice_t *device);
+
+
+void VirtIOBlockRead(VirtIOBlockDevice_t *blockDevice, usize sector);
+void VirtIOBlockWrite(VirtIOBlockDevice_t *blockDevice, usize sector);

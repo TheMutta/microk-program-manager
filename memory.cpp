@@ -15,7 +15,6 @@ void InitializeUntypedMemory(Capability *map, bool *usable, usize count) {
 }
 
 
-
 int GetUntypedRegion(usize size, Capability *capability) {
 	// SIZE IS ROUNDED TO PAGE !!!
 

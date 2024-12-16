@@ -11,6 +11,17 @@
 #define DEVICE_ERROR 40
 #define DRIVER_FAIL  80
 
+/* Common configuration */
+#define VIRTIO_PCI_CAP_COMMON_CFG 1
+/* Notifications */
+#define VIRTIO_PCI_CAP_NOTIFY_CFG 2
+/* ISR Status */
+#define VIRTIO_PCI_CAP_ISR_CFG 3
+/* Device specific configuration */
+#define VIRTIO_PCI_CAP_DEVICE_CFG 4
+/* PCI configuration access */
+#define VIRTIO_PCI_CAP_PCI_CFG 5
+
 enum VirtIODeviceTypes_t {
 	VIRTIO_NET = 1,
 	VIRTIO_BLOCK,

@@ -8,6 +8,8 @@
 #include "capability.hpp"
 #include "acpi.hpp"
 #include "memory.hpp"
+#include "serial.hpp"
+#include "vfs.hpp"
 
 void ExceptionHandler(usize excp, usize errinfo1, usize errinfo2) {
 	mkmi_log("Exception!\r\n");
@@ -43,6 +45,11 @@ void GetVendor() {
 	mkmi_log("Vendor hypervisor: 0x%x, %s\r\n", null, vendor);
 }
 
+MemoryMapper heapMapper;
+MemoryMapper memoryMapper;
+Heap kernelHeap;
+VFS vfs;
+
 extern "C" int Main(ContainerInfo *info) {
 	mkmi_log("Hello from the containerized OS.\r\n");
 	mkmi_log("Response 0x%x\r\n", info);
@@ -72,17 +79,25 @@ extern "C" int Main(ContainerInfo *info) {
 
 	InitializeUntypedMemory(untypedArray, usable, count);
 	Capability framesUt;
-	GetUntypedRegion(PAGE_SIZE * 128, &framesUt);
+	GetUntypedRegion(PAGE_SIZE * 512, &framesUt);
 	
 	uptr heapAddr = 0x1000;
-	MemoryMapper heapMapper(heapAddr);
-	Heap kernelHeap((uptr)
+	heapMapper = MemoryMapper(heapAddr);
+	kernelHeap = Heap((uptr)
 		heapMapper.MMap(framesUt, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE),
-		128 * PAGE_SIZE
+		512 * PAGE_SIZE
 	);
+	
 
-	MemoryMapper memoryMapper(0x400000000);
+	memoryMapper = MemoryMapper(0x400000000);
+	vfs = VFS(&memoryMapper, &kernelHeap);
+	auto dir = vfs.ResolvePath("/");
+	vfs.DebugListDirectory(dir);
+
 	InitACPI(&kernelHeap, &memoryMapper, info);
+
+	WriteSerial("Hello, world\r\n");
+	
 	return 0;
 }
 

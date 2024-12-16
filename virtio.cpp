@@ -6,11 +6,14 @@
 VirtIODevice_t *InitializeVirtIODevice(Heap *kernelHeap, MemoryMapper *mapper, PCIHeader0_t *header0, PCICapability_t *pciCapabilityArray, usize pciCapabilityCount) {
 	VirtIODevice_t *device = (VirtIODevice_t*)kernelHeap->Malloc(sizeof(VirtIODevice_t));
 
+	/* Enable busmaster */
+	header0->Command |= 0b100;
+
 	usize mainBar;
 	usize cfgOffset;
 
 	for (usize i = 0; i < pciCapabilityCount; ++i) {
-		/*mkmi_log("Capability:\r\n"
+		mkmi_log("Capability:\r\n"
 		  " ID: %x\r\n"
 		  " Next: 0x%x\r\n"
 		  " Length: 0x%x\r\n"
@@ -25,16 +28,19 @@ VirtIODevice_t *InitializeVirtIODevice(Heap *kernelHeap, MemoryMapper *mapper, P
 		  pciCapabilityArray[i].BAR,
 		  pciCapabilityArray[i].Offset,
 		  pciCapabilityArray[i].Length
-		  );*/
+		  );
 
 		if (pciCapabilityArray[i].CapID == 0x9) {
-			if (pciCapabilityArray[i].CfgType == 1) {
-				mkmi_log("Main bar is at: %x\r\n", pciCapabilityArray[i].BAR);
-				mainBar = pciCapabilityArray[i].BAR;
-			} else if (pciCapabilityArray[i].CfgType == 4) {
-				mkmi_log("Cfg bar is at: %x\r\n", pciCapabilityArray[i].BAR);
-				mkmi_log("Cfg offset is at: %x\r\n", pciCapabilityArray[i].Offset);
-				device->ConfigOffset = pciCapabilityArray[i].Offset;
+			switch(pciCapabilityArray[i].CfgType) {
+				case VIRTIO_PCI_CAP_COMMON_CFG:
+					mkmi_log("Main bar is at: %x\r\n", pciCapabilityArray[i].BAR);
+					mainBar = pciCapabilityArray[i].BAR;
+					break;
+				case VIRTIO_PCI_CAP_DEVICE_CFG:
+					mkmi_log("Cfg bar is at: %x\r\n", pciCapabilityArray[i].BAR);
+					mkmi_log("Cfg offset is at: %x\r\n", pciCapabilityArray[i].Offset);
+					device->ConfigOffset = pciCapabilityArray[i].Offset;
+					break;
 			}
 		}
 	}
@@ -91,6 +97,7 @@ VirtIODevice_t *InitializeVirtIODevice(Heap *kernelHeap, MemoryMapper *mapper, P
 		device->Header->QueueUsed = (addr + sizeofBuffers + sizeofQueueAvailable);
 		device->Queues[i].UsedPhys = device->Header->QueueUsed;
 		device->Queues[i].Used = (volatile VirtIOQueueUsed_t*)mapper->MMap(mmioMemory[2], PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
+		device->Queues[i].Used->Flags = 0;
 
 		u64 desc = device->Header->QueueDesc;
 		mkmi_log("Desc: 0x%x\r\n", desc);
@@ -106,7 +113,7 @@ VirtIODevice_t *InitializeVirtIODevice(Heap *kernelHeap, MemoryMapper *mapper, P
 }
 
 void VirtIOSendBuffer(VirtIODevice_t *device, u16 queueIndex, VirtIOBufferInfo_t *bufferInfo, u64 count) {
-	VirtIOQueue_t *queue = &device->Queues[queueIndex];
+	volatile VirtIOQueue_t *queue = &device->Queues[queueIndex];
 
 	u16 index = queue->Avail->Index % queue->QueueSize;
 	u16 bufferIndex = queue->NextBuffer;
@@ -128,7 +135,8 @@ void VirtIOSendBuffer(VirtIODevice_t *device, u16 queueIndex, VirtIOBufferInfo_t
 		queue->Desc[bufferIndex].Next = nextBufferIndex;
 		queue->Desc[bufferIndex].Length = bi->Size;
 
-		if (bi->Copy) {
+		if (bi->Copy && false) {
+			// TODO: fix
 			queue->Desc[bufferIndex].Address = (uptr)((uptr)buf2 - (uptr)queue->Desc + queue->DescPhys);
 			if (bi->Buffer != NULL) {
 				memcpy(buf2, bi->Buffer, bi->Size);

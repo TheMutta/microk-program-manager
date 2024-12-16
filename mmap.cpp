@@ -22,7 +22,7 @@ MemoryMapper::MemoryMapper(uptr startAddr) : StartAddr(startAddr) {
 void *MemoryMapper::MMap(Capability capability, usize flags) {
 	uptr addr = StartAddr;
 	for (usize i = 0; i < capability.Size; i += PAGE_SIZE) {
-		if (addr + i >= LVL3Coverage) {
+		if (addr + i + PAGE_SIZE>= LVL3Coverage) {
 			Capability levelsUt;
 			Capability levelsVPS[3];
 
@@ -36,7 +36,7 @@ void *MemoryMapper::MMap(Capability capability, usize flags) {
 			LVL3Coverage += MAX_LVL3_LENGTH;
 			LVL2Coverage += MAX_LVL2_LENGTH;
 			LVL1Coverage += MAX_LVL1_LENGTH;
-		} else if (addr + i >= LVL2Coverage) {
+		} else if (addr + i + PAGE_SIZE >= LVL2Coverage) {
 			Capability levelsUt;
 			Capability levelsVPS[2];
 
@@ -48,7 +48,7 @@ void *MemoryMapper::MMap(Capability capability, usize flags) {
 
 			LVL2Coverage += MAX_LVL2_LENGTH;
 			LVL1Coverage += MAX_LVL1_LENGTH;
-		} else if (addr + i >= LVL1Coverage) {
+		} else if (addr + i + PAGE_SIZE >= LVL1Coverage) {
 			Capability levelsUt;
 			Capability levelsVPS;
 

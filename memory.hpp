@@ -29,6 +29,7 @@ public:
 		bool IsFree;
 	};
 
+	Heap() = default;
 	Heap(uptr address, usize initialSize);
 	void *Malloc(usize size);
 	void Free(void *ptr);
@@ -54,6 +55,7 @@ public:
 		usize Size;
 	};
 
+	MemoryMapper() = default;
 	MemoryMapper(uptr startAddr);
 	void *MMap(Capability capability, usize flags);
 	void UnMap(void *ptr);

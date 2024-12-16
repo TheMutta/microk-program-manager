@@ -2,6 +2,9 @@
 #include "capability.hpp"
 #include "virtio.hpp"
 #include "virtio-disk.hpp"
+#include "virtio-gpu.hpp"
+#include "virtio-net.hpp"
+#include "xhci.hpp"
 
 #include <mkmi.h>
 
@@ -20,7 +23,6 @@ void InitACPI(Heap *kernelHeap, MemoryMapper *mapper, ContainerInfo *info) {
 		for (int i = 0; i < 8; ++i) {
 			signature[i] = rsdp->Signature[i];
 		}
-	
 		mkmi_log("Signature: %s\r\n", signature);
 	}
 
@@ -174,29 +176,33 @@ int InitMCFG(Heap *kernelHeap, MemoryMapper *mapper, MCFG_t *mcfg) {
 							pciCapability = (PCICapability_t*)((uptr)header0 + pciCapability->CapNext);
 						}
 
+						// XHCI
+						if (header0->Class == 0x0C && header0->Subclass == 0x03 && header0->ProgIF == 0x30) {
+							InitializeXHCIDevice(kernelHeap, mapper, header0, pciCapabilityArray, pciCapabilityCount);
+							/*
 
+							AddressCapability(barAddr, &device->BARCapability);
+							 = (volatile *)mapper->MMap(device->BARCapability, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);*/
+						}
+
+						/* Virtio Devices */
 						if (header0->VendorID == 0x1af4 &&
 						   (header0->DeviceID >= 0x1000 && header0->DeviceID <= 0x107F)) {
 							VirtIODevice_t *device = InitializeVirtIODevice(kernelHeap, mapper, header0, pciCapabilityArray, pciCapabilityCount);
 
+							if (header0->DeviceID == 0x1050) {
+								mkmi_log("VirtIO GPU\r\n");
+								VirtIOGPU_t *gpu = InitializeVirtIOGPU(kernelHeap, mapper, device);
+
+							}
+
+
 							switch(header0->SubsystemID) {
 								case 0x1:
 								case 0x41: {
-									mkmi_log("VirtIO Network Adapter\r\n");/*
-							
-									virtio->DeviceStatus = DEVICE_ACK | DRIVER_LOAD;
+									mkmi_log("VirtIO Network Adapter\r\n");
 									
-									VirtIONetHeader_t *network = (VirtIONetHeader_t*)((uptr)virtio + cfgOffset);
-									mkmi_log("MAC Address: %x-%x-%x-%x-%x-%x\r\n",
-										network->MacAddress[0],
-										network->MacAddress[1],
-										network->MacAddress[2],
-										network->MacAddress[3],
-										network->MacAddress[4],
-										network->MacAddress[5]
-										);*/
-									
-									//virtio->DeviceStatus = DEVICE_ACK | DRIVER_LOAD | DRIVER_READY;
+									VirtIONetDevice_t *netDevice = InitializeVirtIONetDevice(kernelHeap, mapper, device);
 									}
 									break;
 								case 0x2:
@@ -204,8 +210,6 @@ int InitMCFG(Heap *kernelHeap, MemoryMapper *mapper, MCFG_t *mcfg) {
 									mkmi_log("VirtIO Block Device\r\n");
 
 									VirtIOBlockDevice_t *blkDevice = InitializeVirtIOBlockDevice(kernelHeap, mapper, device);
-									
-									//virtio->DeviceStatus = DEVICE_ACK | DRIVER_LOAD;
 
 									}
 									break;
@@ -227,21 +231,20 @@ int InitMCFG(Heap *kernelHeap, MemoryMapper *mapper, MCFG_t *mcfg) {
 									break;
 								case 0x7:
 								case 0x47:
-									mkmi_log("VirtIO IO RPMSG\r\n");
+									mkmi_log("VirtIO RPMSG\r\n");
 									break;
 								case 0x8:
 								case 0x48:
-									mkmi_log("VirtIO IO SCSI\r\n");
+									mkmi_log("VirtIO SCSI\r\n");
 									break;
 								case 0x9:
 								case 0x49:
-									mkmi_log("VirtIO IO 9P\r\n");
+									mkmi_log("VirtIO 9P\r\n");
 									break;
-								case 0xA:
-								case 0x4A:
-									mkmi_log("VirtIO IO WLAN\r\n");
-									break;
-							}
+								}
+
+
+
 						}
 						/*mkmi_log("   Type 0\r\n"
 								            "    BAR0: 0x%x\r\n"
