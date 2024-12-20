@@ -55,6 +55,55 @@ void *Heap::Malloc(usize size) {
 	return NULL;
 }
 
+void *Heap::Realloc(void *ptr, usize size) {
+	mkmi_log("Called Realloc for size: %d\r\n", size);
+
+	if (size < 128) {
+		ROUND_UP_TO(size, 128);
+	}
+
+	HeapBlock *block = (HeapBlock*)((uptr)ptr - sizeof(HeapBlock));
+
+	if (size > block->Size) {
+		if (block->Next && block->Next->IsFree) {
+
+		} else {
+
+		}
+	} else if (size < block->Size) {
+		if (block->Next && block->Next->IsFree) {
+			HeapBlock *oldBlock = block->Next;
+			HeapBlock *newBlock = (HeapBlock*)((uptr)block + sizeof(HeapBlock) + size);
+			*newBlock = *oldBlock;
+			memset(oldBlock, 0, sizeof(HeapBlock));
+			newBlock->Size += block->Size - size;
+			block->Size = size;
+			return block;
+		} else {
+			HeapBlock *newBlock = (HeapBlock*)((uptr)block + sizeof(HeapBlock) + size);
+			newBlock->Size = block->Size - size - sizeof(HeapBlock);
+			newBlock->IsFree = true;
+			newBlock->Previous = block;
+			newBlock->Next = block->Next;
+
+			if (block->Next) {
+				block->Next->Previous = newBlock;
+			}
+
+			block->Next = newBlock;
+			block->Size = size;
+			return (void*)((uptr)block + sizeof(HeapBlock));
+		}
+	} else {
+		return ptr;
+	}
+
+	mkmi_log("OUT OF MEMORY\r\n");
+	DebugDump();
+
+	return NULL;
+}
+
 void Heap::Free(void *ptr) {
 	HeapBlock *block = (HeapBlock*)((uptr)ptr - sizeof(HeapBlock));
 	block->IsFree = true;

@@ -5,6 +5,7 @@
 #include "virtio-gpu.hpp"
 #include "virtio-net.hpp"
 #include "xhci.hpp"
+#include "e1000.hpp"
 
 #include <mkmi.h>
 
@@ -183,6 +184,11 @@ int InitMCFG(Heap *kernelHeap, MemoryMapper *mapper, MCFG_t *mcfg) {
 
 							AddressCapability(barAddr, &device->BARCapability);
 							 = (volatile *)mapper->MMap(device->BARCapability, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);*/
+						}
+
+						if (header0->VendorID == 0x8086 && header0->DeviceID == 0x100E) {
+							mkmi_log("E1000 found.\r\n");
+							E1000_t *e1000 = InitializeE1000(kernelHeap, mapper, header0, pciCapabilityArray, pciCapabilityCount);
 						}
 
 						/* Virtio Devices */

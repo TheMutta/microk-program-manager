@@ -10,6 +10,7 @@
 #include "memory.hpp"
 #include "serial.hpp"
 #include "vfs.hpp"
+#include "ramfs.hpp"
 
 void ExceptionHandler(usize excp, usize errinfo1, usize errinfo2) {
 	mkmi_log("Exception!\r\n");
@@ -91,13 +92,14 @@ extern "C" int Main(ContainerInfo *info) {
 
 	memoryMapper = MemoryMapper(0x400000000);
 	vfs = VFS(&memoryMapper, &kernelHeap);
-	auto dir = vfs.ResolvePath("/");
-	vfs.DebugListDirectory(dir);
+	RamFS ramfs(&vfs, &memoryMapper, &kernelHeap, 100);
 
 	InitACPI(&kernelHeap, &memoryMapper, info);
 
+	kernelHeap.DebugDump();
+
 	WriteSerial("Hello, world\r\n");
-	
+
 	return 0;
 }
 

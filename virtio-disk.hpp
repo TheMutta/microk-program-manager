@@ -8,12 +8,12 @@
 struct VirtIOBlockConfig_t {
 	u64 Capacity;
 	u32 SizeMax;
-	u32 seg_max;
+	u32 SegMax;
 	struct virtio_blk_geometry {
-		u16 cylinders;
-		u8 heads;
-		u8 sectors;
-	} geometry;
+		u16 Cylinders;
+		u8 Heads;
+		u8 Sectors;
+	} Geometry;
 	u32 BlockSize;
 	struct virtio_blk_topology {
 		// # of logical blocks per physical block (log2)
@@ -25,7 +25,7 @@ struct VirtIOBlockConfig_t {
 		// optimal (suggested maximum) I/O size in blocks
 		u32 opt_io_size;
 	} topology;
-	u8 writeback;
+	u8 Writeback;
 	u8 unused0[3];
 	u32 max_discard_sectors;
 	u32 max_discard_seg;

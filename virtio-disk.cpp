@@ -3,6 +3,7 @@
 #include "capability.hpp"
 
 #include "fat.hpp"
+#include "gpt.hpp"
 
 #include <mkmi.h>
 
@@ -48,9 +49,17 @@ VirtIOBlockDevice_t *InitializeVirtIOBlockDevice(Heap *kernelHeap, MemoryMapper 
 	);*/
 	
 	VirtIOBlockRead(blockDevice, 1);
-	char *signature = (char*)blockDevice->DiskBufferMapping;
-	mkmi_log("Signature: %s\r\n", signature);
+	GPTHeader_t *header = (GPTHeader_t*)blockDevice->DiskBufferMapping;
+	mkmi_log("Signature: %s\r\n", header->Signature);
+	mkmi_log("GUID: %x-%x-%x-%x\r\n", 
+			header->GUID.Groups.Data1, 
+			header->GUID.Groups.Data2,
+			header->GUID.Groups.Data3,
+			header->GUID.Groups.Data4
+			);
 
+	mkmi_log("Partition entries: %d\r\n", header->PartitionEntries);
+	
 	/*
 	mkmi_log("First sector: %s\r\n", fatHeader.OEMID);
 	mkmi_log("Bytes per sector: %d\r\n", fatHeader.BytesPerSector);

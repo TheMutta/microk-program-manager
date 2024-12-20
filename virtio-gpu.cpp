@@ -26,7 +26,7 @@ VirtIOGPU_t *InitializeVirtIOGPU(Heap *kernelHeap, MemoryMapper *mapper, VirtIOD
 	memset(gpu->ResponseBufferMapping, 0, PAGE_SIZE);
 
 	mkmi_log("Device features: 0x%x\r\n", device->Header->DeviceFeatures);
-	device->Header->DeviceFeatureSelect = device->Header->DeviceFeatures;
+	//device->Header->DeviceFeatureSelect = device->Header->DeviceFeatures;
 
 	VirtIOGPUConfig_t *config = (VirtIOGPUConfig_t*)((uptr)device + device->ConfigOffset);
 	mkmi_log("Events Read: %d\r\n", config->EventsRead);
@@ -36,7 +36,7 @@ VirtIOGPU_t *InitializeVirtIOGPU(Heap *kernelHeap, MemoryMapper *mapper, VirtIOD
 	device->Header->DeviceStatus = DEVICE_ACK | DRIVER_LOAD | DRIVER_READY;
 
 	// TODO: ????
-	VirtIOGPUCtlHdr_t *request = (VirtIOGPUCtlHdr_t*)gpu->RequestBufferMapping;
+	volatile VirtIOGPUCtlHdr_t *request = (volatile VirtIOGPUCtlHdr_t*)gpu->RequestBufferMapping;
 	request->Type = VIRTIO_GPU_CMD_GET_DISPLAY_INFO;
 	request->Flags = 0;
 	request->FenceID = 0;
@@ -51,6 +51,12 @@ VirtIOGPU_t *InitializeVirtIOGPU(Heap *kernelHeap, MemoryMapper *mapper, VirtIOD
 	bufferInfo[1].Flags = VIRTQ_DESC_F_WRITE;
 
 	VirtIOSendBuffer(gpu->Device, 0, bufferInfo, 2);
+
+	volatile VirtIOGPURespDisplayInfo_t *info = (volatile VirtIOGPURespDisplayInfo_t*)gpu->ResponseBufferMapping;
+	//while(info->Header.Type != VIRTIO_GPU_RESP_OK_DISPLAY_INFO) { }
+
+
+
 
 	return gpu;
 }

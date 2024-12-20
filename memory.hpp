@@ -32,6 +32,7 @@ public:
 	Heap() = default;
 	Heap(uptr address, usize initialSize);
 	void *Malloc(usize size);
+	void *Realloc(void *ptr, usize size);
 	void Free(void *ptr);
 	void ExpandHeap(usize amount);
 
