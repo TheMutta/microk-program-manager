@@ -104,9 +104,11 @@ void *Heap::Realloc(void *ptr, usize size) {
 	return NULL;
 }
 
-void Heap::Free(void *ptr) {
+void *Heap::Free(void *ptr) {
 	HeapBlock *block = (HeapBlock*)((uptr)ptr - sizeof(HeapBlock));
 	block->IsFree = true;
+
+	return ptr;
 }
 	
 void Heap::ExpandHeap(usize amount) {

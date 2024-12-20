@@ -167,6 +167,8 @@ E1000_t *InitializeE1000(Heap *kernelHeap, MemoryMapper *mapper, PCIHeader0_t *h
 
 	mkmi_log("E1000 started.\r\n");
 
+	//E1000SendPacket(device, device->PacketBuffer, 32);
+
 	return device;
 }
 
