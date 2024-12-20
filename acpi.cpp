@@ -7,10 +7,6 @@
 #include "xhci.hpp"
 #include "e1000.hpp"
 
-extern "C" {
-#include "lai/include/lai/core.h"
-}
-
 #include <mkmi.h>
 
 int InitMCFG(Heap *kernelHeap, MemoryMapper *mapper, MCFG_t *mcfg);
@@ -31,9 +27,6 @@ void InitACPI(Heap *kernelHeap, MemoryMapper *mapper, ContainerInfo *info) {
 		mkmi_log("Signature: %s\r\n", signature);
 	}
 
-	lai_set_acpi_revision(rsdp->Revision);
-	lai_create_namespace();
-	
 	mkmi_log("RSDT: 0x%x\r\n", rsdp->RsdtAddress);
 	mkmi_log("XSDT: 0x%x\r\n", rsdp->XsdtAddress);
 
