@@ -6,10 +6,12 @@
 #include "virtio-net.hpp"
 #include "xhci.hpp"
 #include "e1000.hpp"
+#include "aml.hpp"
 
 #include <mkmi.h>
 
 int InitMCFG(Heap *kernelHeap, MemoryMapper *mapper, MCFG_t *mcfg);
+int InitFADT(Heap *kernelHeap, MemoryMapper *mapper, FADT_t *fadt);
 
 void InitACPI(Heap *kernelHeap, MemoryMapper *mapper, ContainerInfo *info) {
 	Capability rsdpCapability;
@@ -65,9 +67,28 @@ void InitACPI(Heap *kernelHeap, MemoryMapper *mapper, ContainerInfo *info) {
 		if (memcmp(sdt->Signature, "MCFG", 4) == 0) {
 			MCFG_t *mcfg = (MCFG_t*)sdt;
 			InitMCFG(kernelHeap, mapper, mcfg);
+		} else if (memcmp(sdt->Signature, "FACP", 4) == 0) {
+			FADT_t *fadt = (FADT_t*)sdt;
+			InitFADT(kernelHeap, mapper, fadt);
 		}
 
 	}
+}
+
+int InitFADT(Heap *kernelHeap, MemoryMapper *mapper, FADT_t *fadt) {
+	SDTHeader_t *dsdt;
+	Capability dsdtCapability;
+	if (fadt->X_Dsdt) {
+		AddressCapability(fadt->X_Dsdt, &dsdtCapability);
+	} else if (fadt->Dsdt) {
+		AddressCapability(fadt->Dsdt, &dsdtCapability);
+	}
+
+	dsdt = (SDTHeader_t*)mapper->MMap(dsdtCapability, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
+
+	//ParseAML(dsdt, kernelHeap);
+
+	return 0;
 }
 
 uptr GetBAR(u32 bar, u32 nextBar) {
