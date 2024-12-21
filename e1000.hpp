@@ -118,7 +118,7 @@ struct E1000TXDesc_t {
 } __attribute__((packed));
 
 struct E1000_t {
-	Capability BARCapability;
+	Capability *BARCapability;
 	volatile u8 *BARMapping;
 
 	uptr RXDescs;

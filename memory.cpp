@@ -37,6 +37,6 @@ int GetUntypedRegion(usize size, Capability *capability) {
 		}
 	}
 
-	return GUNTPD_NOMEM;
+	return ;
 }
 

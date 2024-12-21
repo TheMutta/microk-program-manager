@@ -35,19 +35,21 @@ static void RXTXInit(E1000_t *device, MemoryMapper *mapper) {
 	Capability utBufferCapability;
 
 	Capability rxBufferCapability;
-	GetUntypedRegion(PAGE_SIZE, &utBufferCapability);
+	ASSERT(GetUntypedRegion(PAGE_SIZE, &utBufferCapability) == GUNTPD_OK);
 	RetypeCapability(utBufferCapability, &rxBufferCapability, FRAME_MEMORY, 1);
 
 	Capability txBufferCapability;
-	GetUntypedRegion(PAGE_SIZE, &utBufferCapability);
+	ASSERT(GetUntypedRegion(PAGE_SIZE, &utBufferCapability) == GUNTPD_OK);
 	RetypeCapability(utBufferCapability, &txBufferCapability, FRAME_MEMORY, 1);
 
 	device->RXDescs = rxBufferCapability.Object;
 	device->TXDescs = txBufferCapability.Object;
-	device->RXDescsMapping = (E1000RXDesc_t*)mapper->MMap(rxBufferCapability, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
-	device->TXDescsMapping = (E1000TXDesc_t*)mapper->MMap(txBufferCapability, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
+	device->RXDescsMapping = (E1000RXDesc_t*)mapper->MMap(&rxBufferCapability, 1, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
+	device->TXDescsMapping = (E1000TXDesc_t*)mapper->MMap(&txBufferCapability, 1, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
+	mkmi_log("RX: 0x%x TX: 0x%x\r\n", device->RXDescsMapping, device->TXDescsMapping);
 	memset(device->RXDescsMapping, 0, PAGE_SIZE);
 	memset(device->TXDescsMapping, 0, PAGE_SIZE);
+
 
 	for(int i = 0; i < E1000_NUM_RX_DESC; i++) {
 		usize rxBufSize = 8192 + 16;
@@ -118,10 +120,17 @@ E1000_t *InitializeE1000(Heap *kernelHeap, MemoryMapper *mapper, PCIHeader0_t *h
 	/* Enable busmaster */
 	header0->Command |= 0b100;
 	
-	uptr barAddr = GetBAR(header0->BAR[0], header0->BAR[1]);
-	AddressCapability(barAddr, &device->BARCapability);
+	usize size;
+	uptr barAddr = GetBAR(&header0->BAR[0], &header0->BAR[1], &size);
 
-	device->BARMapping = (volatile u8*)mapper->MMap(device->BARCapability, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
+	usize count = size / PAGE_SIZE;
+	device->BARCapability = (Capability*)kernelHeap->Malloc(sizeof(Capability)*count);
+
+	for (usize i = 0; i < count; ++i) {
+		AddressCapability(barAddr + i * PAGE_SIZE, &device->BARCapability[i]);
+	}
+
+	device->BARMapping = (volatile u8*)mapper->MMap(device->BARCapability, count, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
 
 
 	WriteCommand(device, REG_EEPROM, 0x1);
@@ -163,7 +172,7 @@ E1000_t *InitializeE1000(Heap *kernelHeap, MemoryMapper *mapper, PCIHeader0_t *h
 	Capability packetBufferCapability;
 	GetUntypedRegion(PAGE_SIZE, &utBufferCapability);
 	RetypeCapability(utBufferCapability, &packetBufferCapability, FRAME_MEMORY, 1);
-	device->PacketBufferMapping = (u8*)mapper->MMap(packetBufferCapability, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
+	device->PacketBufferMapping = (u8*)mapper->MMap(&packetBufferCapability, 1, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
 
 	mkmi_log("E1000 started.\r\n");
 

@@ -26,21 +26,21 @@ VirtIONetDevice_t *InitializeVirtIONetDevice(Heap *kernelHeap, MemoryMapper *map
 	GetUntypedRegion(PAGE_SIZE, &utBufferCapability);
 	RetypeCapability(utBufferCapability, &rxBufferCapability, FRAME_MEMORY, 1);
 	netDevice->RXBuffer = rxBufferCapability.Object;
-	netDevice->RXBufferMapping = (u8*)mapper->MMap(rxBufferCapability, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
+	netDevice->RXBufferMapping = (u8*)mapper->MMap(&rxBufferCapability, 1, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
 	memset(netDevice->RXBufferMapping, 0, PAGE_SIZE);
 
 	Capability txBufferCapability;
 	GetUntypedRegion(PAGE_SIZE, &utBufferCapability);
 	RetypeCapability(utBufferCapability, &txBufferCapability, FRAME_MEMORY, 1);
 	netDevice->TXBuffer = txBufferCapability.Object;
-	netDevice->TXBufferMapping = (u8*)mapper->MMap(txBufferCapability, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
+	netDevice->TXBufferMapping = (u8*)mapper->MMap(&txBufferCapability, 1, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
 	memset(netDevice->TXBufferMapping, 0, PAGE_SIZE);
 
 	Capability controlBufferCapability;
 	GetUntypedRegion(PAGE_SIZE, &utBufferCapability);
 	RetypeCapability(utBufferCapability, &controlBufferCapability, FRAME_MEMORY, 1);
 	netDevice->ControlBuffer = controlBufferCapability.Object;
-	netDevice->ControlBufferMapping = (u8*)mapper->MMap(controlBufferCapability, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
+	netDevice->ControlBufferMapping = (u8*)mapper->MMap(&controlBufferCapability, 1, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
 	memset(netDevice->ControlBufferMapping, 0, PAGE_SIZE);
 
 	return netDevice;

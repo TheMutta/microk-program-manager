@@ -19,7 +19,7 @@ VirtIOBlockDevice_t *InitializeVirtIOBlockDevice(Heap *kernelHeap, MemoryMapper 
 	RetypeCapability(utBufferCapability, &dmaBufferCapability, MMIO_MEMORY, 1);
 
 	blockDevice->DiskBuffer = dmaBufferCapability.Object;
-	blockDevice->DiskBufferMapping = (u8*)mapper->MMap(dmaBufferCapability, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
+	blockDevice->DiskBufferMapping = (u8*)mapper->MMap(&dmaBufferCapability, 1, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
 	memset(blockDevice->DiskBufferMapping, 0, PAGE_SIZE);
 
 
@@ -27,7 +27,7 @@ VirtIOBlockDevice_t *InitializeVirtIOBlockDevice(Heap *kernelHeap, MemoryMapper 
 	GetUntypedRegion(PAGE_SIZE, &utBufferCapability);
 	RetypeCapability(utBufferCapability, &requestBufferCapability, FRAME_MEMORY, 1);
 	blockDevice->RequestBuffer = requestBufferCapability.Object;
-	blockDevice->RequestBufferMapping = (u8*)mapper->MMap(requestBufferCapability, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
+	blockDevice->RequestBufferMapping = (u8*)mapper->MMap(&requestBufferCapability, 1, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
 	memset(blockDevice->RequestBufferMapping, 0, PAGE_SIZE);
 
 	

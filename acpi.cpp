@@ -17,7 +17,7 @@ void InitACPI(Heap *kernelHeap, MemoryMapper *mapper, ContainerInfo *info) {
 	Capability rsdpCapability;
 	AddressCapability(info->x86_64.RSDPCapability, &rsdpCapability);
 
-	void *rsdpAddr = mapper->MMap(rsdpCapability, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
+	void *rsdpAddr = mapper->MMap(&rsdpCapability, 1, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
 	RSDP_t *rsdp = (RSDP_t*)((uptr)rsdpAddr + info->x86_64.RSDPOffset);
 	mkmi_log("rsdp at 0x%x\r\n", rsdp);
 
@@ -37,7 +37,7 @@ void InitACPI(Heap *kernelHeap, MemoryMapper *mapper, ContainerInfo *info) {
 
 	Capability xsdtCapability;
 	AddressCapability(sdtAddr, &xsdtCapability);
-	void *xsdtAddr = mapper->MMap(xsdtCapability, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
+	void *xsdtAddr = mapper->MMap(&xsdtCapability, 1, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
 	SDTHeader_t *xsdt = (SDTHeader_t*)((uptr)xsdtAddr + (rsdp->XsdtAddress % PAGE_SIZE));
 
 	{
@@ -59,7 +59,7 @@ void InitACPI(Heap *kernelHeap, MemoryMapper *mapper, ContainerInfo *info) {
 
 		Capability sdtCapability;
 		AddressCapability(*ptr, &sdtCapability);
-		void *sdtAddr = mapper->MMap(sdtCapability, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
+		void *sdtAddr = mapper->MMap(&sdtCapability, 1, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
 		SDTHeader_t *sdt = (SDTHeader_t*)((uptr)sdtAddr);
 
 		memcpy(sig, sdt->Signature, 4);
@@ -84,35 +84,70 @@ int InitFADT(Heap *kernelHeap, MemoryMapper *mapper, FADT_t *fadt) {
 		AddressCapability(fadt->Dsdt, &dsdtCapability);
 	}
 
-	dsdt = (SDTHeader_t*)mapper->MMap(dsdtCapability, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
+	dsdt = (SDTHeader_t*)mapper->MMap(&dsdtCapability, 1, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
+	usize length = dsdt->Length;
+	mapper->MUnmap(&dsdtCapability, 1);
+
+	usize count;
+	Capability dsdtCapabilities[length / PAGE_SIZE];
+	for (int i = 0; i < count; ++i ) {
+		AddressCapability((uptr)dsdt + i * PAGE_SIZE, &dsdtCapabilities[i]);
+	}
+
+	dsdt = (SDTHeader_t*)mapper->MMap(&dsdtCapability, count, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
 
 	//ParseAML(dsdt, kernelHeap);
 
 	return 0;
 }
 
-uptr GetBAR(u32 bar, u32 nextBar) {
-	usize ignore;
-	return GetBAR(bar, nextBar, &ignore);
-}
+uptr GetBAR(u32 *bar, u32 *nextBar, usize *size) {
+	if (*bar & 0b1) {
+		// IO SPACE BAR
+		// TODO: manage io ports
+		uptr addr = *bar & 0xFFF0;
+		usize barSize = 1;
 
-uptr GetBAR(u32 bar, u32 nextBar, usize *size) {
-	if (bar & 0b1) {
-		uptr addr = bar & 0xFFF0;
+		volatile u16 originalBar = *bar;
+		*bar = 0xffff;
+		barSize = (~(*bar) + 1) & 0xffff;
+		*bar = originalBar;
 
-		*size = sizeof(u16);
-		return addr;
+		if (addr != 0) {
+			*size = barSize;
+		}
 	} else {
-		u8 type = ((bar & 0b110) >> 1);
+		u8 type = ((*bar & 0b110) >> 1);
 		if (type == 0) {
-			uptr addr = bar & 0xFFFFFFF0;
-			*size = sizeof(u32);
-			return addr;
+			// 32 bit bar
+			uptr addr = *bar & 0xfffffff0;
+			usize barSize = PAGE_SIZE;
+
+			volatile u32 originalBar = *bar;
+			*bar = 0xffffffff;
+			barSize = ~(*bar) + 1;
+			ROUND_UP_TO(barSize, PAGE_SIZE);
+			*bar = originalBar;
+
+			if (addr != 0) {
+				*size = barSize;
+				return addr;
+			}
 		} else if (type == 2) {
 			//64 bit bar
-			uptr addr = ((bar & 0xFFFFFFF0) + (((uptr)nextBar & 0xFFFFFFFF) << 32));
-			*size = sizeof(u64);
-			return addr;
+			uptr addr = ((*bar & 0xFFFFFFF0) + (((uptr)*nextBar & 0xFFFFFFFF) << 32));
+			usize barSize = PAGE_SIZE;
+			
+			volatile u32 originalBar = *bar;
+			*bar = 0xFFFFFFFF;
+			barSize = ~(*bar) + 1;
+			ROUND_UP_TO(barSize, PAGE_SIZE);
+			*bar = originalBar;
+
+			if (addr != 0) {
+				*size = barSize;
+				return addr;
+			}
 		}
 	}
 }
@@ -137,7 +172,7 @@ int InitMCFG(Heap *kernelHeap, MemoryMapper *mapper, MCFG_t *mcfg) {
 
 			Capability busCapability;
 			AddressCapability(busAddress, &busCapability);
-			PCIDeviceHeader_t *header = (PCIDeviceHeader_t*)mapper->MMap(busCapability, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
+			PCIDeviceHeader_t *header = (PCIDeviceHeader_t*)mapper->MMap(&busCapability, 1, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
 			if(header->DeviceID == 0) continue;
 			if(header->DeviceID == 0xFFFF) continue;
 			
@@ -149,7 +184,7 @@ int InitMCFG(Heap *kernelHeap, MemoryMapper *mapper, MCFG_t *mcfg) {
 
 				Capability deviceCapability;
 				AddressCapability(deviceAddress, &deviceCapability);
-				PCIDeviceHeader_t *header = (PCIDeviceHeader_t*)mapper->MMap(deviceCapability, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
+				PCIDeviceHeader_t *header = (PCIDeviceHeader_t*)mapper->MMap(&deviceCapability, 1, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
 
 				if(header->DeviceID == 0) continue;
 				if(header->DeviceID == 0xFFFF) continue;
@@ -162,7 +197,7 @@ int InitMCFG(Heap *kernelHeap, MemoryMapper *mapper, MCFG_t *mcfg) {
 
 					Capability functionCapability;
 					AddressCapability(functionAddress, &functionCapability);
-					PCIDeviceHeader_t *header = (PCIDeviceHeader_t*)mapper->MMap(functionCapability, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
+					PCIDeviceHeader_t *header = (PCIDeviceHeader_t*)mapper->MMap(&functionCapability, 1, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
 
 					if(header->DeviceID == 0) continue;
 					if(header->DeviceID == 0xFFFF) continue;

@@ -94,7 +94,7 @@ struct VirtIOQueue_t {
 };
 
 struct VirtIODevice_t {
-	Capability BARCapability;
+	Capability *BARCapability;
 	volatile VirtIOHeader_t *Header;
 	usize ConfigOffset;
 

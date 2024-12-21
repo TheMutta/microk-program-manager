@@ -81,11 +81,14 @@ extern "C" int Main(ContainerInfo *info) {
 	InitializeUntypedMemory(untypedArray, usable, count);
 	Capability framesUt;
 	GetUntypedRegion(PAGE_SIZE * 512, &framesUt);
+
+	Capability framesRetyped[512];
+	RetypeCapability(framesUt, framesRetyped, FRAME_MEMORY, 512);
 	
 	uptr heapAddr = 0x1000;
 	heapMapper = MemoryMapper(heapAddr);
 	kernelHeap = Heap((uptr)
-		heapMapper.MMap(framesUt, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE),
+		heapMapper.MMap(framesRetyped, 512, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE),
 		512 * PAGE_SIZE
 	);
 	
@@ -93,8 +96,22 @@ extern "C" int Main(ContainerInfo *info) {
 	memoryMapper = MemoryMapper(0x400000000);
 	vfs = VFS(&memoryMapper, &kernelHeap);
 	RamFS ramfs(&vfs, &memoryMapper, &kernelHeap, 100);
+	RamFS devfs(&vfs, &memoryMapper, &kernelHeap, 100);
 
-	InitACPI(&kernelHeap, &memoryMapper, info);
+	VFSNodeHandle rootHandle;
+	ramfs.Open(0, &rootHandle);
+	vfs.Mount(rootHandle, rootHandle);
+	
+	VFSNodeHandle rootDevDirHandle;
+	ramfs.MkDir(rootHandle, "dev", &rootDevDirHandle);
+
+	VFSNodeHandle devRootHandle;
+	devfs.Open(0, &devRootHandle);
+	vfs.Mount(rootDevDirHandle, devRootHandle);
+
+	//vfs.ResolvePath("/", &handle);
+
+	//InitACPI(&kernelHeap, &memoryMapper, info);
 
 	kernelHeap.DebugDump();
 

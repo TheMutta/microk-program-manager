@@ -6,7 +6,7 @@ class VFS;
 class FS;
 
 enum VFSNodeType {
-	VFS_NODE_FILE,
+	VFS_NODE_FILE = 1,
 	VFS_NODE_DIR,
 };
 
@@ -18,6 +18,7 @@ enum VFSNodeMode {
 
 struct VFSNode {
 	u64 NodeID;
+	char NodeName[256];
 	VFSNodeType Type;
 };
 
@@ -28,7 +29,12 @@ struct VFSNodeHandle {
 
 struct VFSDirNode {
 	u64 NodeID;
-	char NodeName[256];
+};
+
+class FS {
+public:
+	virtual int Open(u64 node, VFSNodeHandle *nodeHandle) = 0;
+	virtual int MkDir(VFSNodeHandle base, const char *name, VFSNodeHandle *nodeHandle) = 0;
 };
 
 class VFS {
@@ -36,11 +42,17 @@ public:
 	VFS() = default;
 	VFS(MemoryMapper *mapper, Heap *kernelHeap);
 
-	int Open(VFSNodeHandle handle);
-	usize Read(VFSNodeHandle handle, void *buffer, usize length);
-	usize Write(VFSNodeHandle handle, void *buffer, usize length);
-	int Close(VFSNodeHandle handle);
+	int ResolvePath(char *path, VFSNodeHandle *nodeHandle);
+	void Mount(VFSNodeHandle mountPoint, VFSNodeHandle mountedFS);
 private:
+	struct VFSMount {
+		VFSNodeHandle MountPoint;
+		VFSNodeHandle MountedFS;
+		VFSMount *Next, *Previous;
+	};
+
+	VFSMount *MountPoints;
+
 	MemoryMapper *Mapper;
 	Heap *KernelHeap;
 };

@@ -210,5 +210,4 @@ struct PCICapability_t {
 
 void InitACPI(Heap *kernelHeap, MemoryMapper *mapper, ContainerInfo *info);
 
-uptr GetBAR(u32 bar, u32 nextBar);
-uptr GetBAR(u32 bar, u32 nextBar, usize *size);
+uptr GetBAR(u32 *bar, u32 *nextBar, usize *size);

@@ -15,14 +15,14 @@ VirtIOGPU_t *InitializeVirtIOGPU(Heap *kernelHeap, MemoryMapper *mapper, VirtIOD
 	GetUntypedRegion(PAGE_SIZE, &utBufferCapability);
 	RetypeCapability(utBufferCapability, &requestBufferCapability, FRAME_MEMORY, 1);
 	gpu->RequestBuffer = requestBufferCapability.Object;
-	gpu->RequestBufferMapping = (u8*)mapper->MMap(requestBufferCapability, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
+	gpu->RequestBufferMapping = (u8*)mapper->MMap(&requestBufferCapability, 1, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
 	memset(gpu->RequestBufferMapping, 0, PAGE_SIZE);
 
 	Capability responseBufferCapability;
 	GetUntypedRegion(PAGE_SIZE, &utBufferCapability);
 	RetypeCapability(utBufferCapability, &responseBufferCapability, FRAME_MEMORY, 1);
 	gpu->ResponseBuffer = responseBufferCapability.Object;
-	gpu->ResponseBufferMapping = (u8*)mapper->MMap(responseBufferCapability, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
+	gpu->ResponseBufferMapping = (u8*)mapper->MMap(&responseBufferCapability, 1, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
 	memset(gpu->ResponseBufferMapping, 0, PAGE_SIZE);
 
 	mkmi_log("Device features: 0x%x\r\n", device->Header->DeviceFeatures);

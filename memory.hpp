@@ -58,8 +58,8 @@ public:
 
 	MemoryMapper() = default;
 	MemoryMapper(uptr startAddr);
-	void *MMap(Capability capability, usize flags);
-	void UnMap(void *ptr);
+	void *MMap(Capability *capabilityArray, usize count, usize flags);
+	void MUnmap(Capability *capabilityArray, usize count);
 
 	uptr StartAddr;
 

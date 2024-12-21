@@ -46,14 +46,21 @@ VirtIODevice_t *InitializeVirtIODevice(Heap *kernelHeap, MemoryMapper *mapper, P
 	}
 
 	uptr barAddr;
+	usize barSize;
 	if (mainBar < 5) {
-		barAddr = GetBAR(header0->BAR[mainBar], header0->BAR[mainBar + 1]);
+		barAddr = GetBAR(&header0->BAR[mainBar], &header0->BAR[mainBar + 1], &barSize);
 	} else {
-		barAddr = GetBAR(header0->BAR[mainBar], 0);
+		barAddr = GetBAR(&header0->BAR[mainBar], 0, &barSize);
 	}
 
-	AddressCapability(barAddr, &device->BARCapability);
-	device->Header = (volatile VirtIOHeader_t*)mapper->MMap(device->BARCapability, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
+	usize count = barSize / PAGE_SIZE;
+	device->BARCapability = (Capability*)kernelHeap->Malloc(sizeof(Capability)*count);
+
+	for (usize i = 0; i < count; ++i) {
+		AddressCapability(barAddr + i * PAGE_SIZE, &device->BARCapability[i]);
+	}
+
+	device->Header = (volatile VirtIOHeader_t*)mapper->MMap(device->BARCapability, count, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
 
 	device->Header->DeviceStatus = DEVICE_ACK;
 	mkmi_log("Device has %d queues\r\n", device->Header->NumQueues);
@@ -90,13 +97,13 @@ VirtIODevice_t *InitializeVirtIODevice(Heap *kernelHeap, MemoryMapper *mapper, P
 		uptr addr = mmioMemory[0].Object;
 		device->Header->QueueDesc = addr;
 		device->Queues[i].DescPhys = device->Header->QueueDesc;
-		device->Queues[i].Desc = (volatile VirtIOQueueDesc_t*)mapper->MMap(mmioMemory[0], PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
+		device->Queues[i].Desc = (volatile VirtIOQueueDesc_t*)mapper->MMap(&mmioMemory[0], 1, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
 		device->Header->QueueAvailable = addr + sizeofBuffers;
 		device->Queues[i].AvailPhys = device->Header->QueueAvailable;
-		device->Queues[i].Avail = (volatile VirtIOQueueAvail_t*)mapper->MMap(mmioMemory[1], PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
+		device->Queues[i].Avail = (volatile VirtIOQueueAvail_t*)mapper->MMap(&mmioMemory[1], 1, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
 		device->Header->QueueUsed = (addr + sizeofBuffers + sizeofQueueAvailable);
 		device->Queues[i].UsedPhys = device->Header->QueueUsed;
-		device->Queues[i].Used = (volatile VirtIOQueueUsed_t*)mapper->MMap(mmioMemory[2], PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
+		device->Queues[i].Used = (volatile VirtIOQueueUsed_t*)mapper->MMap(&mmioMemory[2], 1, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
 		device->Queues[i].Used->Flags = 0;
 
 		u64 desc = device->Header->QueueDesc;
