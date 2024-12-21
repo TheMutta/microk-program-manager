@@ -8,7 +8,7 @@ public:
 	~RamFS() { }
 
 	
-	int Open(u64 node, VFSNodeHandle *nodeHandle) override;
+	int Open(VFSNodeHandle base, const char *name, VFSNodeHandle *nodeHandle) override;
 	int MkDir(VFSNodeHandle base, const char *name, VFSNodeHandle *nodeHandle) override;
 private:
 	struct RamFSDirContents;

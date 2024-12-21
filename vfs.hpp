@@ -33,7 +33,7 @@ struct VFSDirNode {
 
 class FS {
 public:
-	virtual int Open(u64 node, VFSNodeHandle *nodeHandle) = 0;
+	virtual int Open(VFSNodeHandle base, const char *name, VFSNodeHandle *nodeHandle) = 0;
 	virtual int MkDir(VFSNodeHandle base, const char *name, VFSNodeHandle *nodeHandle) = 0;
 };
 
@@ -41,6 +41,8 @@ class VFS {
 public:
 	VFS() = default;
 	VFS(MemoryMapper *mapper, Heap *kernelHeap);
+
+	int Tree(VFSNodeHandle rootNode);
 
 	int ResolvePath(char *path, VFSNodeHandle *nodeHandle);
 	void Mount(VFSNodeHandle mountPoint, VFSNodeHandle mountedFS);

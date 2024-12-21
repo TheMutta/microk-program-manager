@@ -109,8 +109,6 @@ extern "C" int Main(ContainerInfo *info) {
 	devfs.Open(0, &devRootHandle);
 	vfs.Mount(rootDevDirHandle, devRootHandle);
 
-	//vfs.ResolvePath("/", &handle);
-
 	//InitACPI(&kernelHeap, &memoryMapper, info);
 
 	kernelHeap.DebugDump();

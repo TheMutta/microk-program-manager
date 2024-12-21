@@ -25,13 +25,9 @@ RamFS::RamFS(VFS *vfs, MemoryMapper *mapper, Heap *kernelHeap, usize initialSize
 	rootNode->Data.Directory.Contents->Next->Next = nullptr;
 }
 
-int RamFS::Open(u64 node, VFSNodeHandle *nodeHandle) {
-	if (node >= Size) return -1;
-	if(Nodes[node].Type != VFS_NODE_FILE) return -1;
+	
+int RamFS::Open(VFSNodeHandle base, const char *name, VFSNodeHandle *nodeHandle) {
 
-	nodeHandle->NodeID = node;
-	nodeHandle->Fs = (FS*)this;
-	return 0;
 }
 	
 int RamFS::MkDir(VFSNodeHandle base, const char *name, VFSNodeHandle *nodeHandle) {
