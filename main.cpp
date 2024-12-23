@@ -97,6 +97,12 @@ extern "C" int Main(ContainerInfo *info) {
 	vfs = VFS(&memoryMapper, &kernelHeap);
 	RamFS ramfs(&vfs, &memoryMapper, &kernelHeap, 100);
 	RamFS devfs(&vfs, &memoryMapper, &kernelHeap, 100);
+		
+
+/*
+	uptr avic = 0xFEE00000;
+	Capability avicCapability;
+	AddressCapability(avic, &avicCapability);
 
 	VFSNodeHandle rootHandle;
 	ramfs.Open(0, &rootHandle);
@@ -108,8 +114,9 @@ extern "C" int Main(ContainerInfo *info) {
 	VFSNodeHandle devRootHandle;
 	devfs.Open(0, &devRootHandle);
 	vfs.Mount(rootDevDirHandle, devRootHandle);
-
-	//InitACPI(&kernelHeap, &memoryMapper, info);
+	
+	InitACPI(&kernelHeap, &memoryMapper, info);
+*/
 
 	kernelHeap.DebugDump();
 
