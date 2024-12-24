@@ -100,28 +100,26 @@ extern "C" int Main(ContainerInfo *info) {
 		
 
 /*
-	uptr avic = 0xFEE00000;
-	Capability avicCapability;
-	AddressCapability(avic, &avicCapability);
-
 	VFSNodeHandle rootHandle;
 	ramfs.Open(0, &rootHandle);
 	vfs.Mount(rootHandle, rootHandle);
-	
+
 	VFSNodeHandle rootDevDirHandle;
 	ramfs.MkDir(rootHandle, "dev", &rootDevDirHandle);
 
 	VFSNodeHandle devRootHandle;
 	devfs.Open(0, &devRootHandle);
 	vfs.Mount(rootDevDirHandle, devRootHandle);
+*/
 	
 	InitACPI(&kernelHeap, &memoryMapper, info);
-*/
 
 	kernelHeap.DebugDump();
 
 	WriteSerial("Hello, world\r\n");
 
+
+	while(true) { }
 	return 0;
 }
 

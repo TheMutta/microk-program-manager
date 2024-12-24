@@ -35,20 +35,20 @@ static void RXTXInit(E1000_t *device, MemoryMapper *mapper) {
 	Capability utBufferCapability;
 
 	Capability rxBufferCapability;
-	ASSERT(GetUntypedRegion(PAGE_SIZE, &utBufferCapability) == GUNTPD_OK);
+	GetUntypedRegion(PAGE_SIZE, &utBufferCapability);
 	RetypeCapability(utBufferCapability, &rxBufferCapability, FRAME_MEMORY, 1);
 
 	Capability txBufferCapability;
-	ASSERT(GetUntypedRegion(PAGE_SIZE, &utBufferCapability) == GUNTPD_OK);
+	GetUntypedRegion(PAGE_SIZE, &utBufferCapability);
 	RetypeCapability(utBufferCapability, &txBufferCapability, FRAME_MEMORY, 1);
 
 	device->RXDescs = rxBufferCapability.Object;
 	device->TXDescs = txBufferCapability.Object;
 	device->RXDescsMapping = (E1000RXDesc_t*)mapper->MMap(&rxBufferCapability, 1, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
 	device->TXDescsMapping = (E1000TXDesc_t*)mapper->MMap(&txBufferCapability, 1, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
-	mkmi_log("RX: 0x%x TX: 0x%x\r\n", device->RXDescsMapping, device->TXDescsMapping);
 	memset(device->RXDescsMapping, 0, PAGE_SIZE);
 	memset(device->TXDescsMapping, 0, PAGE_SIZE);
+	mkmi_log("RX: 0x%x TX: 0x%x\r\n", device->RXDescsMapping, device->TXDescsMapping);
 
 
 	for(int i = 0; i < E1000_NUM_RX_DESC; i++) {
@@ -56,10 +56,12 @@ static void RXTXInit(E1000_t *device, MemoryMapper *mapper) {
 		ROUND_UP_TO(rxBufSize, PAGE_SIZE);
 
 		Capability rxBufferCapability[rxBufSize / PAGE_SIZE];
-		GetUntypedRegion(PAGE_SIZE, &utBufferCapability);
+		ASSERT(GetUntypedRegion(rxBufSize, &utBufferCapability) == GUNTPD_OK);
 		RetypeCapability(utBufferCapability, rxBufferCapability, FRAME_MEMORY, rxBufSize / PAGE_SIZE);
 		device->RXDescsMapping[i].Addr = rxBufferCapability[0].Object;
 		device->RXDescsMapping[i].Status = 0;
+
+		mkmi_log("OK\r\n");
 	}
 
 	for(int i = 0; i < E1000_NUM_TX_DESC; i++) {
