@@ -7,7 +7,7 @@ public:
 	RamFS(VFS *vfs, MemoryMapper *mapper, Heap *kernelHeap, usize initialSize);
 	~RamFS() { }
 
-	
+	int GetRoot(VFSNodeHandle *nodeHandle) override;
 	int Open(VFSNodeHandle base, const char *name, VFSNodeHandle *nodeHandle) override;
 	int MkDir(VFSNodeHandle base, const char *name, VFSNodeHandle *nodeHandle) override;
 private:

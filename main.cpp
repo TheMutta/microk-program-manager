@@ -99,18 +99,18 @@ extern "C" int Main(ContainerInfo *info) {
 	RamFS devfs(&vfs, &memoryMapper, &kernelHeap, 100);
 		
 
-/*
 	VFSNodeHandle rootHandle;
-	ramfs.Open(0, &rootHandle);
+	ramfs.GetRoot(&rootHandle);
 	vfs.Mount(rootHandle, rootHandle);
 
 	VFSNodeHandle rootDevDirHandle;
 	ramfs.MkDir(rootHandle, "dev", &rootDevDirHandle);
 
 	VFSNodeHandle devRootHandle;
-	devfs.Open(0, &devRootHandle);
+	devfs.GetRoot(&devRootHandle);
 	vfs.Mount(rootDevDirHandle, devRootHandle);
-*/
+	
+	vfs.DebugDump();
 	
 	InitACPI(&kernelHeap, &memoryMapper, info);
 

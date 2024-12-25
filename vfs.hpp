@@ -33,6 +33,7 @@ struct VFSDirNode {
 
 class FS {
 public:
+	virtual int GetRoot(VFSNodeHandle *nodeHandle) = 0;
 	virtual int Open(VFSNodeHandle base, const char *name, VFSNodeHandle *nodeHandle) = 0;
 	virtual int MkDir(VFSNodeHandle base, const char *name, VFSNodeHandle *nodeHandle) = 0;
 };
@@ -41,6 +42,8 @@ class VFS {
 public:
 	VFS() = default;
 	VFS(MemoryMapper *mapper, Heap *kernelHeap);
+
+	void DebugDump();
 
 	int Tree(VFSNodeHandle rootNode);
 

@@ -6,13 +6,30 @@ VFS::VFS(MemoryMapper *mapper, Heap *kernelHeap) : Mapper(mapper), KernelHeap(ke
 
 }
 
+void VFS::DebugDump() {
+	mkmi_log("Mount points:\r\n");
+
+	VFSMount *current = MountPoints;
+	while(current) {
+		mkmi_log(" 0x%x-%d -> 0x%x-%d\r\n",
+				current->MountPoint.Fs,
+				current->MountPoint.NodeID,
+				current->MountedFS.Fs,
+				current->MountedFS.NodeID);
+		current = current->Next;
+	}
+}
+
+
 void VFS::Mount(VFSNodeHandle mountPoint, VFSNodeHandle mountedFS) {
 	if (MountPoints == nullptr) {
+		mkmi_log("Mounting VFS root.\r\n");
 		MountPoints = (VFSMount*)KernelHeap->Malloc(sizeof(VFSMount));
 		MountPoints->MountPoint = mountPoint;
 		MountPoints->MountedFS = mountedFS;
 		MountPoints->Next = MountPoints->Previous = nullptr;
 	} else {
+		mkmi_log("Mounting in VFS.\r\n");
 		VFSMount *newMount = (VFSMount*)KernelHeap->Malloc(sizeof(VFSMount));
 		newMount->MountPoint = mountPoint;
 		newMount->MountedFS = mountedFS;

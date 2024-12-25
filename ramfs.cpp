@@ -25,6 +25,13 @@ RamFS::RamFS(VFS *vfs, MemoryMapper *mapper, Heap *kernelHeap, usize initialSize
 	rootNode->Data.Directory.Contents->Next->Next = nullptr;
 }
 
+int RamFS::GetRoot(VFSNodeHandle *nodeHandle) {
+	RamFSNode *rootNode = (RamFSNode*)&Nodes[0];
+	nodeHandle->Fs = (FS*)this;
+	nodeHandle->NodeID = 0;
+
+	return 0;
+}
 	
 int RamFS::Open(VFSNodeHandle base, const char *name, VFSNodeHandle *nodeHandle) {
 
@@ -58,6 +65,9 @@ int RamFS::MkDir(VFSNodeHandle base, const char *name, VFSNodeHandle *nodeHandle
 	dir->Previous = baseNode->Data.Directory.Contents;
 	baseNode->Data.Directory.Contents->Next->Previous = dir;
 	baseNode->Data.Directory.Contents->Next = dir;
+
+	nodeHandle->Fs = (FS*)this;
+	nodeHandle->NodeID = node->NodeID;
 
 	return 0;
 }
