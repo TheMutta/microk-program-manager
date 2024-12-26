@@ -1,6 +1,9 @@
 #pragma once
 #include <cdefs.h>
 
+#include "netutils.hpp"
+#include "../mm/memory.hpp"
+
 struct ARPPacketHeader_t {
 #define ARP_HADRWARE_TYPE_ETH 0x1
 	u16 HardwareType; // Hardware type
@@ -21,3 +24,5 @@ struct ARPPacketEthIPv4_t : public ARPPacketHeader_t {
 	u8  DstHardware[ARP_PACKET_ETH_LENGTH]; // Destination hardware address - hlen bytes (see above)
 	u8  DstProtocol[ARP_PACKET_IPv4_LENGTH]; // Destination protocol address - plen bytes (see above). If IPv4 can just be a "u32" type.
 }__attribute__((packed));
+
+int ARPSendPacket(NetworkCard *card, Heap *kernelHeap, u8 *dstHardwareAddr, u8 *dstProtocolAddr);

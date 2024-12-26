@@ -3,6 +3,7 @@
 #include <object.hpp>
 
 #include "../mm/memory.hpp"
+#include "../net/netutils.hpp"
 #include "acpi.hpp"
 
 
@@ -117,7 +118,7 @@ struct E1000TXDesc_t {
         volatile u16 Special;
 } __attribute__((packed));
 
-struct E1000_t {
+struct E1000_t : public NetworkCard {
 	Capability *BARCapability;
 	volatile u8 *BARMapping;
 
@@ -132,10 +133,8 @@ struct E1000_t {
 
 	uptr PacketBuffer;
 	u8 *PacketBufferMapping;
-
-	u8 MAC[6];
 };
 
 
 E1000_t *InitializeE1000(Heap *kernelHeap, MemoryMapper *mapper, PCIHeader0_t *header0, PCICapability_t *pciCapabilityArray, usize pciCapabilityCount);
-int E1000SendPacket(E1000_t *device, uptr data, u16 len);
+int E1000SendPacket(E1000_t *device, u8 *data, usize len);

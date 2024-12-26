@@ -196,17 +196,21 @@ E1000_t *InitializeE1000(Heap *kernelHeap, MemoryMapper *mapper, PCIHeader0_t *h
 	Capability packetBufferCapability;
 	GetUntypedRegion(PAGE_SIZE, &utBufferCapability);
 	RetypeCapability(utBufferCapability, &packetBufferCapability, FRAME_MEMORY, 1);
+	device->PacketBuffer = packetBufferCapability.Object;
 	device->PacketBufferMapping = (u8*)mapper->MMap(&packetBufferCapability, 1, PAGE_PROTECTION_READ | PAGE_PROTECTION_WRITE);
 
 	mkmi_log("E1000 started.\r\n");
 
+	device->SendPacket = E1000SendPacket;
 	//E1000SendPacket(device, device->PacketBuffer, 32);
 
 	return device;
 }
 
-int E1000SendPacket(E1000_t *device, uptr data, u16 len) {
-	device->TXDescsMapping[device->TXCurr].Addr = data;
+int E1000SendPacket(E1000_t *device, u8 *data, usize len) {
+	memcpy(device->PacketBufferMapping, data, len);
+
+	device->TXDescsMapping[device->TXCurr].Addr =  device->PacketBuffer;
 	device->TXDescsMapping[device->TXCurr].Length = len;
 	device->TXDescsMapping[device->TXCurr].Cmd = CMD_EOP | CMD_IFCS | CMD_RS;
 	device->TXDescsMapping[device->TXCurr].Status = 0;
