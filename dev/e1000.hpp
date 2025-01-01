@@ -136,5 +136,5 @@ struct E1000_t : public NetworkCard {
 };
 
 
-E1000_t *InitializeE1000(Heap *kernelHeap, MemoryMapper *mapper, PCIHeader0_t *header0, PCICapability_t *pciCapabilityArray, usize pciCapabilityCount);
+E1000_t *InitializeE1000(Heap *kernelHeap, MemoryMapper *mapper, PCIHeader0_t *header0);
 int E1000SendPacket(E1000_t *device, u8 *data, usize len);

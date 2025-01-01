@@ -12,6 +12,7 @@ void InitializeUntypedMemory(Capability *map, bool *usable, usize count);
 #define GUNTPD_OK 0
 #define GUNTPD_NOMEM 1
 int GetUntypedRegion(usize size, Capability *capability);
+int GetUntypedRegion32(usize size, Capability *capability);
 
 #define MMAP_OK 0
 #define MMAP_ERR  128

@@ -3,46 +3,54 @@
 
 #include <mkmi.h>
 
-VirtIODevice_t *InitializeVirtIODevice(Heap *kernelHeap, MemoryMapper *mapper, PCIHeader0_t *header0, PCICapability_t *pciCapabilityArray, usize pciCapabilityCount) {
+VirtIODevice_t *InitializeVirtIODevice(Heap *kernelHeap, MemoryMapper *mapper, PCIHeader0_t *header0) {
 	VirtIODevice_t *device = (VirtIODevice_t*)kernelHeap->Malloc(sizeof(VirtIODevice_t));
 
 	/* Enable busmaster */
 	header0->Command |= 0b100;
+	//__fast_hypercall(HYPERCALL_VECTOR_REGISTER_IRQ, header0->InterruptLine, 32, 0, 0, 0, 0);
 
 	usize mainBar;
 	usize cfgOffset;
 
-	for (usize i = 0; i < pciCapabilityCount; ++i) {
+	PCICapability_t *pciCapability = (PCICapability_t*)((uptr)header0 + header0->CapabilitiesPointer);
+	usize pciCapabilityCount;
+	for (pciCapabilityCount = 0;; pciCapabilityCount++) {
 		mkmi_log("Capability:\r\n"
 		  " ID: %x\r\n"
 		  " Next: 0x%x\r\n"
-		  " Length: 0x%x\r\n"
-		  " CFG Type: 0x%x\r\n"
-		  " BAR: 0x%x\r\n"
-		  " Offset: 0x%x\r\n"
-		  " Length: 0x%x\r\n", 
-		  pciCapabilityArray[i].CapID,
-		  pciCapabilityArray[i].CapNext,
-		  pciCapabilityArray[i].CapLength,
-		  pciCapabilityArray[i].CfgType,
-		  pciCapabilityArray[i].BAR,
-		  pciCapabilityArray[i].Offset,
-		  pciCapabilityArray[i].Length
-		  );
+		  " Length: 0x%x\r\n",
+		  pciCapability->CapID,
+		  pciCapability->CapNext,
+		  pciCapability->CapLength);
 
-		if (pciCapabilityArray[i].CapID == 0x9) {
-			switch(pciCapabilityArray[i].CfgType) {
+		if (pciCapability->CapID == 0x9) {
+			VirtIOPCICapability_t *current = (VirtIOPCICapability_t*)pciCapability;
+
+			switch(current->CfgType) {
 				case VIRTIO_PCI_CAP_COMMON_CFG:
-					mkmi_log("Main bar is at: %x\r\n", pciCapabilityArray[i].BAR);
-					mainBar = pciCapabilityArray[i].BAR;
+					mkmi_log("Main bar is at: %x\r\n", current->BAR);
+					mainBar = current->BAR;
 					break;
 				case VIRTIO_PCI_CAP_DEVICE_CFG:
-					mkmi_log("Cfg bar is at: %x\r\n", pciCapabilityArray[i].BAR);
-					mkmi_log("Cfg offset is at: %x\r\n", pciCapabilityArray[i].Offset);
-					device->ConfigOffset = pciCapabilityArray[i].Offset;
+					mkmi_log("Cfg bar is at: %x\r\n", current->BAR);
+					mkmi_log("Cfg offset is at: %x\r\n", current->Offset);
+					device->ConfigOffset = current->Offset;
 					break;
 			}
+		} else if (pciCapability->CapID == 0x05) {
+			mkmi_log("MSI\r\n");
+		} else if (pciCapability->CapID == 0x11) {
+			mkmi_log("MSI-X\r\n");
+
 		}
+
+		if (pciCapability->CapNext == 0) {
+			pciCapabilityCount++;
+			break;
+		}
+
+		pciCapability = (PCICapability_t*)((uptr)header0 + pciCapability->CapNext);
 	}
 
 	uptr barAddr;

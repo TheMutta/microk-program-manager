@@ -18,9 +18,9 @@ int ARPSendPacket(NetworkCard *card, Heap *kernelHeap, u8 *dstHardwareAddr, u8 *
 	packet.OPCode = htons(ARP_REQUEST);
 
 	memcpy(packet.SrcHardware, card->MAC, ARP_PACKET_ETH_LENGTH);
-	packet.SrcProtocol[0] = 10;
-	packet.SrcProtocol[1] = 0;
-	packet.SrcProtocol[2] = 0;
+	packet.SrcProtocol[0] = 192;
+	packet.SrcProtocol[1] = 168;
+	packet.SrcProtocol[2] = 1;
 	packet.SrcProtocol[3] = 10;
 
 	memcpy(packet.DstHardware, dstHardwareAddr, ARP_PACKET_ETH_LENGTH);

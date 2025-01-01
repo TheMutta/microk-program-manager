@@ -6,6 +6,7 @@
 #include "virtio-net.hpp"
 #include "xhci.hpp"
 #include "e1000.hpp"
+#include "../net/arp.hpp"
 
 #include <mkmi.h>
 
@@ -206,35 +207,9 @@ int InitMCFG(Heap *kernelHeap, MemoryMapper *mapper, MCFG_t *mcfg) {
 
 					if (header->HeaderType == 0) {
 						PCIHeader0_t *header0 = (PCIHeader0_t*)header;
-
-
-						PCICapability_t *pciCapability = (PCICapability_t*)((uptr)header0 + header0->CapabilitiesPointer);
-						usize pciCapabilityCount;
-						for (pciCapabilityCount = 0;; pciCapabilityCount++) {
-							if (pciCapability->CapNext == 0) {
-								pciCapabilityCount++;
-								break;
-							}
-	
-							pciCapability = (PCICapability_t*)((uptr)header0 + pciCapability->CapNext);
-						}
-
-						mkmi_log("Device has %d capabilities\r\n", pciCapabilityCount);
-
-						//PCICapability_t *pciCapabilityArray = kernelHeap->Malloc(sizeof(PCICapability_t) * pciCapabilityCount);
-						//kernelHeap->Free(pciCapabilityArray);
-						PCICapability_t pciCapabilityArray[pciCapabilityCount];
-
-						pciCapability = (PCICapability_t*)((uptr)header0 + header0->CapabilitiesPointer);
-						for (usize i = 0; i < pciCapabilityCount; i++) {
-							pciCapabilityArray[i] = *pciCapability;
-
-							pciCapability = (PCICapability_t*)((uptr)header0 + pciCapability->CapNext);
-						}
-
 						// XHCI
 						if (header0->Class == 0x0C && header0->Subclass == 0x03 && header0->ProgIF == 0x30) {
-							InitializeXHCIDevice(kernelHeap, mapper, header0, pciCapabilityArray, pciCapabilityCount);
+							InitializeXHCIDevice(kernelHeap, mapper, header0);
 							/*
 
 							AddressCapability(barAddr, &device->BARCapability);
@@ -243,13 +218,17 @@ int InitMCFG(Heap *kernelHeap, MemoryMapper *mapper, MCFG_t *mcfg) {
 
 						if (header0->VendorID == 0x8086 && header0->DeviceID == 0x100E) {
 							mkmi_log("E1000 found.\r\n");
-							E1000_t *e1000 = InitializeE1000(kernelHeap, mapper, header0, pciCapabilityArray, pciCapabilityCount);
+							E1000_t *e1000 = InitializeE1000(kernelHeap, mapper, header0);
+/*
+							u8 ip[ARP_PACKET_IPv4_LENGTH] = { 192, 168, 1, 110 };
+							u8 destArp[ARP_PACKET_ETH_LENGTH] = {0,0,0,0,0,0};
+							ARPSendPacket(e1000, kernelHeap, ip, destArp);*/
 						}
 
 						/* Virtio Devices */
 						if (header0->VendorID == 0x1af4 &&
 						   (header0->DeviceID >= 0x1000 && header0->DeviceID <= 0x107F)) {
-							VirtIODevice_t *device = InitializeVirtIODevice(kernelHeap, mapper, header0, pciCapabilityArray, pciCapabilityCount);
+							VirtIODevice_t *device = InitializeVirtIODevice(kernelHeap, mapper, header0);
 
 							if (header0->DeviceID == 0x1050) {
 								mkmi_log("VirtIO GPU\r\n");

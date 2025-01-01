@@ -116,34 +116,13 @@ static void EnableInterrupt(E1000_t *device) {
 	ReadCommand(device, 0xc0);
 }
 
-E1000_t *InitializeE1000(Heap *kernelHeap, MemoryMapper *mapper, PCIHeader0_t *header0, PCICapability_t *pciCapabilityArray, usize pciCapabilityCount) {
+E1000_t *InitializeE1000(Heap *kernelHeap, MemoryMapper *mapper, PCIHeader0_t *header0) {
 	E1000_t *device = (E1000_t*)kernelHeap->Malloc(sizeof(E1000_t));
 
 	/* Enable busmaster */
 	header0->Command |= 0b100;
+	//__fast_hypercall(HYPERCALL_VECTOR_REGISTER_IRQ, header0->InterruptLine, 32, 0, 0, 0, 0);
 
-
-	mkmi_log("E1000 has %d capabilities.\r\n", pciCapabilityCount);
-
-	for (usize i = 0; i < pciCapabilityCount; ++i) {
-		mkmi_log("Capability:\r\n"
-		  " ID: %x\r\n"
-		  " Next: 0x%x\r\n"
-		  " Length: 0x%x\r\n"
-		  " CFG Type: 0x%x\r\n"
-		  " BAR: 0x%x\r\n"
-		  " Offset: 0x%x\r\n"
-		  " Length: 0x%x\r\n", 
-		  pciCapabilityArray[i].CapID,
-		  pciCapabilityArray[i].CapNext,
-		  pciCapabilityArray[i].CapLength,
-		  pciCapabilityArray[i].CfgType,
-		  pciCapabilityArray[i].BAR,
-		  pciCapabilityArray[i].Offset,
-		  pciCapabilityArray[i].Length
-		  );
-	}
-	
 	usize size;
 	uptr barAddr = GetBAR(&header0->BAR[0], &header0->BAR[1], &size);
 
@@ -189,6 +168,9 @@ E1000_t *InitializeE1000(Heap *kernelHeap, MemoryMapper *mapper, PCIHeader0_t *h
 	        WriteCommand(device, 0x5200 + i*4, 0);
 	}
 
+	mkmi_log("E1000 Interrupt line: %d\r\n", header0->InterruptLine);
+	mkmi_log("E1000 Interrupt pin: %d\r\n", header0->InterruptPIN);
+
 	EnableInterrupt(device);
 	RXTXInit(device, mapper);
 
@@ -210,7 +192,9 @@ E1000_t *InitializeE1000(Heap *kernelHeap, MemoryMapper *mapper, PCIHeader0_t *h
 int E1000SendPacket(E1000_t *device, u8 *data, usize len) {
 	memcpy(device->PacketBufferMapping, data, len);
 
-	device->TXDescsMapping[device->TXCurr].Addr =  device->PacketBuffer;
+	mkmi_log("Sending packet 0x%x of size %d.\r\n", data, len);
+
+	device->TXDescsMapping[device->TXCurr].Addr = device->PacketBuffer;
 	device->TXDescsMapping[device->TXCurr].Length = len;
 	device->TXDescsMapping[device->TXCurr].Cmd = CMD_EOP | CMD_IFCS | CMD_RS;
 	device->TXDescsMapping[device->TXCurr].Status = 0;

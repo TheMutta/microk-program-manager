@@ -40,4 +40,4 @@ struct XHCIPortRuntimeRegs {
 
 }__attribute__((packed));
 
-void InitializeXHCIDevice(Heap *kernelHeap, MemoryMapper *mapper, PCIHeader0_t *header0, PCICapability_t *pciCapabilityArray, usize pciCapabilityCount);
+void InitializeXHCIDevice(Heap *kernelHeap, MemoryMapper *mapper, PCIHeader0_t *header0);

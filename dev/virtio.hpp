@@ -112,7 +112,16 @@ struct VirtIOBufferInfo_t {
     bool Copy;
 };
 
-VirtIODevice_t *InitializeVirtIODevice(Heap *kernelHeap, MemoryMapper *mapper, PCIHeader0_t *header0, PCICapability_t *pciCapabilityArray, usize pciCapabilityCount);
+struct VirtIOPCICapability_t : public PCICapability_t {
+	u8 CfgType;
+	u8 BAR;
+	u8 Padding[3];
+	u32 Offset;
+	u32 Length;
+}__attribute__((packed));
+
+
+VirtIODevice_t *InitializeVirtIODevice(Heap *kernelHeap, MemoryMapper *mapper, PCIHeader0_t *header0);
 
 void VirtIOSendBuffer(VirtIODevice_t *device, u16 queueIndex, VirtIOBufferInfo_t *bufferInfo, u64 count);
 

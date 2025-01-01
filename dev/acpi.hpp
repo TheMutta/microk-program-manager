@@ -201,11 +201,6 @@ struct PCICapability_t {
 	u8 CapID; /* Generic PCI field: PCI_CAP_ID_VNDR */
 	u8 CapNext; /* Generic PCI field: next ptr. */
 	u8 CapLength; /* Generic PCI field: capability length */
-	u8 CfgType;
-	u8 BAR;
-	u8 Padding[3];
-	u32 Offset;
-	u32 Length;
 }__attribute__((packed));
 
 void InitACPI(Heap *kernelHeap, MemoryMapper *mapper, ContainerInfo *info);

@@ -3,7 +3,7 @@
 #include "xhci.hpp"
 #include "../init/capability.hpp"
 
-void InitializeXHCIDevice(Heap *kernelHeap, MemoryMapper *mapper, PCIHeader0_t *header0, PCICapability_t *pciCapabilityArray, usize pciCapabilityCount) {
+void InitializeXHCIDevice(Heap *kernelHeap, MemoryMapper *mapper, PCIHeader0_t *header0) {
 	usize barSize;
 	uptr barAddr = GetBAR(&header0->BAR[0], &header0->BAR[1], &barSize);
 
